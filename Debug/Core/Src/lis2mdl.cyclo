@@ -1,0 +1,3 @@
+../Core/Src/lis2mdl.c:15:19:LIS2MDL_ReadReg	1
+../Core/Src/lis2mdl.c:20:19:LIS2MDL_ReadRegs	1
+../Core/Src/lis2mdl.c:25:19:LIS2MDL_WriteReg	1

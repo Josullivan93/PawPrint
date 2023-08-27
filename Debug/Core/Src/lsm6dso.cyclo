@@ -1,0 +1,3 @@
+../Core/Src/lsm6dso.c:15:19:LSM6DSO_ReadReg	1
+../Core/Src/lsm6dso.c:20:19:LSM6DSO_ReadRegs	1
+../Core/Src/lsm6dso.c:25:19:LSM6DSO_WriteReg	1

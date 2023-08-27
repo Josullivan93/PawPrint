@@ -1,0 +1,3 @@
+../Core/Src/stts751.c:15:19:STTS751_ReadReg	40	static
+../Core/Src/stts751.c:20:19:STTS751_ReadRegs	40	static
+../Core/Src/stts751.c:25:19:STTS751_WriteReg	40	static
