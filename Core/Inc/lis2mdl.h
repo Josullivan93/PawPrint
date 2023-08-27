@@ -21,29 +21,29 @@
 
 /* REGISTERS page 27 */
 
-#define LIS2MDL_REG_OFFSET_X_L				 0x45
-#define LIS2MDL_REG_OFFSET_X_H				 0x46
-#define LIS2MDL_REG_OFFSET_Y_L				 0x47
-#define LIS2MDL_REG_OFFSET_Y_H				 0x48
-#define LIS2MDL_REG_OFFSET_Z_L				 0x49
-#define LIS2MDL_REG_OFFSET_Z_H				 0x4A
-#define LIS2MDL_REG_WHO_AM_I				 0x4F
-#define LIS2MDL_REG_CFG_REG_A				 0x60
-#define LIS2MDL_REG_CFG_REG_B				 0x61
-#define LIS2MDL_REG_CFG_REG_C				 0x62
-#define LIS2MDL_REG_INT_CRTL				 0x63
-#define LIS2MDL_REG_INT_SOURCE				 0x64
-#define LIS2MDL_REG_INT_THS_L				 0x65
-#define LIS2MDL_REG_INT_THS_H				 0x66
-#define LIS2MDL_REG_STATUS					 0x67
-#define LIS2MDL_REG_OUTX_L					 0x68
-#define LIS2MDL_REG_OUTX_H					 0x69
-#define LIS2MDL_REG_OUTY_L					 0x6A
-#define LIS2MDL_REG_OUTY_H					 0x6B
-#define LIS2MDL_REG_OUTZ_L					 0x6C
-#define LIS2MDL_REG_OUTZ_H					 0x6D
-#define LIS2MDL_REG_TEMP_OUT_L				 0x6E
-#define LIS2MDL_REG_TEMP_OUT_H				 0x6F
+#define LIS2MDL_REG_OFFSET_X_L				 0x45U
+#define LIS2MDL_REG_OFFSET_X_H				 0x46U
+#define LIS2MDL_REG_OFFSET_Y_L				 0x47U
+#define LIS2MDL_REG_OFFSET_Y_H				 0x48U
+#define LIS2MDL_REG_OFFSET_Z_L				 0x49U
+#define LIS2MDL_REG_OFFSET_Z_H				 0x4AU
+#define LIS2MDL_REG_WHO_AM_I				 0x4FU
+#define LIS2MDL_REG_CFG_A				 	 0x60U
+#define LIS2MDL_REG_CFG_B					 0x61U
+#define LIS2MDL_REG_CFG_C					 0x62U
+#define LIS2MDL_REG_INT_CRTL				 0x63U
+#define LIS2MDL_REG_INT_SOURCE				 0x64U
+#define LIS2MDL_REG_INT_THS_L				 0x65U
+#define LIS2MDL_REG_INT_THS_H				 0x66U
+#define LIS2MDL_REG_STATUS					 0x67U
+#define LIS2MDL_REG_OUTX_L					 0x68U
+#define LIS2MDL_REG_OUTX_H					 0x69U
+#define LIS2MDL_REG_OUTY_L					 0x6AU
+#define LIS2MDL_REG_OUTY_H					 0x6BU
+#define LIS2MDL_REG_OUTZ_L					 0x6CU
+#define LIS2MDL_REG_OUTZ_H					 0x6DU
+#define LIS2MDL_REG_TEMP_OUT_L				 0x6EU
+#define LIS2MDL_REG_TEMP_OUT_H				 0x6FU
 
 /* Low level functions */
 HAL_StatusTypeDef	LIS2MDL_ReadReg( I2C_HandleTypeDef	*i2cHandle, uint8_t reg, uint8_t *data );
