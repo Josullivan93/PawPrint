@@ -63,8 +63,10 @@ void Error_Handler(void);
 #define IMU_SDA_GPIO_Port GPIOC
 #define IMU_INT_Pin GPIO_PIN_2
 #define IMU_INT_GPIO_Port GPIOC
+#define IMU_INT_EXTI_IRQn EXTI2_IRQn
 #define TEMP_INT_Pin GPIO_PIN_3
 #define TEMP_INT_GPIO_Port GPIOC
+#define TEMP_INT_EXTI_IRQn EXTI3_IRQn
 #define SDMMC_Detect_Pin GPIO_PIN_7
 #define SDMMC_Detect_GPIO_Port GPIOC
 
