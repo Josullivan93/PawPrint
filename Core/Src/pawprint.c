@@ -14,12 +14,12 @@
 #include "pawprint.h"
 
 /* Private Variables */
-
-static uint8_t tx_buffer[1000];
-static st_fifo_raw_slot raw_slot[126];
-static st_fifo_out_slot out_slot[126];
-static st_fifo_out_slot acc_slot[126];
-static st_fifo_out_slot gyr_slot[126];
+static FIFO_out_file FIFO_out[512];
+//static uint8_t tx_buffer[1000];
+//static st_fifo_raw_slot raw_slot[126];
+//static st_fifo_out_slot out_slot[126];
+//static st_fifo_out_slot acc_slot[126];
+//static st_fifo_out_slot gyr_slot[126];
 
 /* Initialisation */
 
@@ -118,9 +118,9 @@ void pawprint_init( I2C_HandleTypeDef *i2cHandle ){
 	LSM6DSO_WriteReg(i2cHandle, LSM6DSO_REG_CTRL2_G , &RegDat);
 
 	/**** FIFO set up ****/
-	RegDat = 0x80;
-	LSM6DSO_WriteReg(i2cHandle, LSM6DSO_REG_FIFO_CTRL1 , &RegDat);// Set Watermark level to 256 = 25% 512
-	RegDat = 0x00;
+	RegDat = 0x2C;
+	LSM6DSO_WriteReg(i2cHandle, LSM6DSO_REG_FIFO_CTRL1 , &RegDat);// Set Watermark level to 300
+	RegDat = 0x01;
 	LSM6DSO_WriteReg(i2cHandle, LSM6DSO_REG_FIFO_CTRL2 , &RegDat);
 	RegDat = 0x44;
 	LSM6DSO_WriteReg(i2cHandle, LSM6DSO_REG_FIFO_CTRL3 , &RegDat); // Set BDR for XL and Gyro (104Hz both)
@@ -181,55 +181,168 @@ void pawprint_init( I2C_HandleTypeDef *i2cHandle ){
 
 }
 
+/* FIFO read and decode - uses st_fifo repo from STMicro git */
+
 void pawprint_readFIFO( I2C_HandleTypeDef *i2cHandle ){
 
-	uint8_t FIFO_STATUS1 = 0, FIFO_STATUS2 = 0, FIFO_tag_reg = 0, FIFO_tag = 0, FIFO_counter_old = 0;
-	uint16_t FIFO_Depth = 0, FIFO_Slots = 0, Out_FIFO_Slots, acc_samples;
-	//lsm6dso_tags_t	lsm6dso_tags;
+	st_fifo_conf FIFOconf;
+	uint8_t FIFOstatus[2];
+	uint16_t FIFOdepth = 0;
+
+	FIFOconf.device = ST_FIFO_LSM6DSO;
+	FIFOconf.bdr_xl = 0; // 104 - as batching timestamp can set to 0
+	FIFOconf.bdr_gy = 0;
+	FIFOconf.bdr_vsens = 0;
+
+	st_fifo_init(&FIFOconf);
+	st_fifo_raw_slot *raw_slot;
+	st_fifo_out_slot *out_slot;
+	uint16_t out_slot_size;
+
 
 	/* Confirm watermark has been met LSM6DSO_REG_FIFO_STATUS2 */
-	LSM6DSO_ReadReg(i2cHandle, LSM6DSO_REG_FIFO_STATUS2, &FIFO_STATUS2);
-	HAL_Delay(1000);
-	if (((FIFO_STATUS2 >> 7)  & 0x01)||((FIFO_STATUS2 >> 6)  & 0x01)||((FIFO_STATUS2 >> 5)  & 0x01)){ // Check WTM threshold bit, overrun bit and full bit
+	LSM6DSO_ReadRegs(i2cHandle, LSM6DSO_REG_FIFO_STATUS1, &FIFOstatus[0], 2);
+
+	if (((FIFOstatus[1] >> 7)  & 0x01)||((FIFOstatus[1] >> 6)  & 0x01)||((FIFOstatus[1] >> 5)  & 0x01)){ // Check WTM threshold bit, overrun bit and full bit
 		/* Get number of samples in FIFO*/
-		LSM6DSO_ReadReg(i2cHandle, LSM6DSO_REG_FIFO_STATUS1, &FIFO_STATUS1);
-		FIFO_Depth = ((((uint16_t)FIFO_STATUS2 & 0x03) << 8) + (uint16_t)FIFO_STATUS1);
-		/* Loop until FIFO Empty */
-		while (FIFO_Depth--){
-			/* Read Tag and store */
-			LSM6DSO_ReadReg(i2cHandle, LSM6DSO_REG_FIFO_STATUS1, (uint8_t *)&raw_slot[FIFO_Slots].fifo_data_out[0]);
-			/* Read Raw Data */
-			LSM6DSO_ReadRegs(i2cHandle, LSM6DSO_REG_FIFO_DATA_OUT_X_L, &raw_slot[FIFO_Slots].fifo_data_out[1],6 );
-			//FIFO_tag = (FIFO_tag_reg >> 3); // Take tag register and right shift to leave only the tag
-			FIFO_Slots++;
-			//switch(FIFO_tag) {
-			//case LSM6DSO_XL_NC_TAG:
-				// Get data out
-				// Convert to mg
+		//LSM6DSO_ReadReg(i2cHandle, LSM6DSO_REG_FIFO_STATUS1, &FIFOstatus[1]);
+		FIFOdepth = ((((uint16_t)FIFOstatus[1] & 0x03) << 8) + (uint16_t)FIFOstatus[0]);
 
+		raw_slot = malloc(FIFOdepth * sizeof(st_fifo_raw_slot));
+		out_slot = malloc(FIFOdepth * 3 * sizeof(st_fifo_out_slot));
+
+		int slots = 0;
+
+		while(FIFOdepth--) {
+//
+			LSM6DSO_ReadRegs(i2cHandle, LSM6DSO_REG_FIFO_DATA_OUT_X_L, &raw_slot[slots].fifo_data_out[0],7 );
+//
+			slots++;
 		}
-		/* Filter based on sensor type */
-		st_fifo_decode(out_slot, raw_slot, &Out_FIFO_Slots, FIFO_Slots);
-		st_fifo_sort(out_slot, Out_FIFO_Slots);
-		acc_samples = st_fifo_get_sensor_occurrence(out_slot,Out_FIFO_Slots, ST_FIFO_ACCELEROMETER);
 
-		 /* Count how many acc and gyro samples */
-		      st_fifo_extract_sensor(acc_slot, out_slot, Out_FIFO_Slots,
-		                             ST_FIFO_ACCELEROMETER);
-		      st_fifo_extract_sensor(gyr_slot, out_slot, Out_FIFO_Slots,
-		                             ST_FIFO_GYROSCOPE);
+		st_fifo_decode(out_slot, raw_slot, &out_slot_size, FIFOdepth);
+		st_fifo_sort(out_slot, out_slot_size);
 
-		      for (int i = 0; i < acc_samples; i++) {
-		        sprintf((char *)tx_buffer, "ACC:\t%u\t%d\t%4.2f\t%4.2f\t%4.2f\r\n",
-		                (unsigned int)acc_slot[i].timestamp,
-		                acc_slot[i].sensor_tag,
-		                lsm6dso_from_fs2_to_mg(acc_slot[i].sensor_data.x),
-		                lsm6dso_from_fs2_to_mg(acc_slot[i].sensor_data.y),
-		                lsm6dso_from_fs2_to_mg(acc_slot[i].sensor_data.z));
-		      }
+		uint16_t acc_samples = st_fifo_get_sensor_occurrence(out_slot, out_slot_size, ST_FIFO_ACCELEROMETER);
+		uint16_t gyr_samples = st_fifo_get_sensor_occurrence(out_slot, out_slot_size, ST_FIFO_GYROSCOPE);
+		uint16_t temp_samples = st_fifo_get_sensor_occurrence(out_slot, out_slot_size, ST_FIFO_TEMPERATURE);
+		uint16_t mag_samples = st_fifo_get_sensor_occurrence(out_slot, out_slot_size, ST_FIFO_EXT_SENSOR0);
+		uint16_t ext_temp_samples = st_fifo_get_sensor_occurrence(out_slot, out_slot_size, ST_FIFO_EXT_SENSOR1);
+
+		st_fifo_out_slot *acc_slot = malloc(acc_samples * sizeof(st_fifo_out_slot));
+		st_fifo_out_slot *gyr_slot = malloc(gyr_samples * sizeof(st_fifo_out_slot));
+		st_fifo_out_slot *temp_slot = malloc(temp_samples * sizeof(st_fifo_out_slot));
+		st_fifo_out_slot *mag_slot = malloc(mag_samples * sizeof(st_fifo_out_slot));
+		st_fifo_out_slot *ext_temp_slot = malloc(ext_temp_samples * sizeof(st_fifo_out_slot));
+
+		st_fifo_extract_sensor(acc_slot, out_slot, out_slot_size, ST_FIFO_ACCELEROMETER);
+		st_fifo_extract_sensor(gyr_slot, out_slot, out_slot_size, ST_FIFO_GYROSCOPE);
+		st_fifo_extract_sensor(temp_slot, out_slot, out_slot_size, ST_FIFO_TEMPERATURE);
+		st_fifo_extract_sensor(mag_slot, out_slot, out_slot_size, ST_FIFO_EXT_SENSOR0);
+		st_fifo_extract_sensor(ext_temp_slot, out_slot, out_slot_size, ST_FIFO_EXT_SENSOR1);
+
+		uint32_t row_count = 0;
+
+		// Convert to real units & add to formatted strings
+	    for (int i = 0; i < acc_samples; i++) {
+	    	FIFO_out[row_count].timestamp = acc_slot[i].timestamp;
+	    	FIFO_out[row_count].sensor_tag = acc_slot[i].sensor_tag;
+	    	FIFO_out[row_count].sensor_data.x = lsm6dso_from_fs2_to_mg(acc_slot[i].sensor_data.x);
+	    	FIFO_out[row_count].sensor_data.y = lsm6dso_from_fs2_to_mg(acc_slot[i].sensor_data.y);
+	    	FIFO_out[row_count].sensor_data.z = lsm6dso_from_fs2_to_mg(acc_slot[i].sensor_data.z);
+	    	FIFO_out[row_count].sensor_data.temp = 0;
+	    	row_count++;
+	    }
+
+	    for (int i = 0; i < gyr_samples; i++) {
+	    	FIFO_out[row_count].timestamp = gyr_slot[i].timestamp;
+	    	FIFO_out[row_count].sensor_tag = gyr_slot[i].sensor_tag;
+	    	FIFO_out[row_count].sensor_data.x = lsm6dso_from_fs125_to_mdps(gyr_slot[i].sensor_data.x);
+	    	FIFO_out[row_count].sensor_data.y = lsm6dso_from_fs125_to_mdps(gyr_slot[i].sensor_data.y);
+	    	FIFO_out[row_count].sensor_data.z = lsm6dso_from_fs125_to_mdps(gyr_slot[i].sensor_data.z);
+	    	FIFO_out[row_count].sensor_data.temp = 0;
+	    	row_count++;
+	    }
+
+	    for (int i = 0; i < mag_samples; i++) {
+	    	FIFO_out[row_count].timestamp = mag_slot[i].timestamp;
+	    	FIFO_out[row_count].sensor_tag = mag_slot[i].sensor_tag;
+	    	FIFO_out[row_count].sensor_data.x = lis2mdl_from_lsb_to_mgauss(mag_slot[i].sensor_data.x);
+	    	FIFO_out[row_count].sensor_data.y = lis2mdl_from_lsb_to_mgauss(mag_slot[i].sensor_data.y);
+	    	FIFO_out[row_count].sensor_data.z = lis2mdl_from_lsb_to_mgauss(mag_slot[i].sensor_data.z);
+	    	FIFO_out[row_count].sensor_data.temp = 0;
+	    	row_count++;
+	    }
+
+	    for (int i = 0; i < temp_samples; i++) {
+	    	FIFO_out[row_count].timestamp = temp_slot[i].timestamp;
+	    	FIFO_out[row_count].sensor_tag = temp_slot[i].sensor_tag;
+	    	FIFO_out[row_count].sensor_data.temp = lsm6dso_from_lsb_to_celsius(temp_slot[i].sensor_data.temp);
+	    	FIFO_out[row_count].sensor_data.x = 0;
+	    	FIFO_out[row_count].sensor_data.y = 0;
+	    	FIFO_out[row_count].sensor_data.z = 0;
+	    	row_count++;
+	    }
+
+	    for (int i = 0; i < ext_temp_samples; i++) {
+	    	FIFO_out[row_count].timestamp = ext_temp_slot[i].timestamp;
+	    	FIFO_out[row_count].sensor_tag = ext_temp_slot[i].sensor_tag;
+	    	uint16_t temp_raw = (ext_temp_slot[i].sensor_data.x & 0xFF00) | (ext_temp_slot[i].sensor_data.y >> 8);
+	    	FIFO_out[row_count].sensor_data.temp = lsm6dso_from_lsb_to_celsius(temp_raw);
+	    	FIFO_out[row_count].sensor_data.x = 0;
+	    	FIFO_out[row_count].sensor_data.y = 0;
+	    	FIFO_out[row_count].sensor_data.z = 0;
+	    	row_count++;
+	    }
 
 	}
 
+//	uint8_t FIFO_STATUS1 = 0, FIFO_STATUS2 = 0, FIFO_tag_reg = 0, FIFO_tag = 0, FIFO_counter_old = 0;
+//	uint16_t FIFO_Depth = 0, FIFO_Slots = 0, Out_FIFO_Slots, acc_samples;
+//	//lsm6dso_tags_t	lsm6dso_tags;
+//
+//	/* Confirm watermark has been met LSM6DSO_REG_FIFO_STATUS2 */
+//	LSM6DSO_ReadReg(i2cHandle, LSM6DSO_REG_FIFO_STATUS2, &FIFO_STATUS2);
+//	HAL_Delay(1000);
+//	if (((FIFO_STATUS2 >> 7)  & 0x01)||((FIFO_STATUS2 >> 6)  & 0x01)||((FIFO_STATUS2 >> 5)  & 0x01)){ // Check WTM threshold bit, overrun bit and full bit
+//		/* Get number of samples in FIFO*/
+//		LSM6DSO_ReadReg(i2cHandle, LSM6DSO_REG_FIFO_STATUS1, &FIFO_STATUS1);
+//		FIFO_Depth = ((((uint16_t)FIFO_STATUS2 & 0x03) << 8) + (uint16_t)FIFO_STATUS1);
+//		/* Loop until FIFO Empty */
+//		while (FIFO_Depth--){
+//			/* Read Tag and store */
+//			LSM6DSO_ReadReg(i2cHandle, LSM6DSO_REG_FIFO_STATUS1, (uint8_t *)&raw_slot[FIFO_Slots].fifo_data_out[0]);
+//			/* Read Raw Data */
+//			LSM6DSO_ReadRegs(i2cHandle, LSM6DSO_REG_FIFO_DATA_OUT_X_L, &raw_slot[FIFO_Slots].fifo_data_out[1],6 );
+//			//FIFO_tag = (FIFO_tag_reg >> 3); // Take tag register and right shift to leave only the tag
+//			FIFO_Slots++;
+//			//switch(FIFO_tag) {
+//			//case LSM6DSO_XL_NC_TAG:
+//				// Get data out
+//				// Convert to mg
+//
+//		}
+//		/* Filter based on sensor type */
+//		st_fifo_decode(out_slot, raw_slot, &Out_FIFO_Slots, FIFO_Slots);
+//		st_fifo_sort(out_slot, Out_FIFO_Slots);
+//		acc_samples = st_fifo_get_sensor_occurrence(out_slot,Out_FIFO_Slots, ST_FIFO_ACCELEROMETER);
+//
+//		 /* Count how many acc and gyro samples */
+//		      st_fifo_extract_sensor(acc_slot, out_slot, Out_FIFO_Slots,
+//		                             ST_FIFO_ACCELEROMETER);
+//		      st_fifo_extract_sensor(gyr_slot, out_slot, Out_FIFO_Slots,
+//		                             ST_FIFO_GYROSCOPE);
+//
+//		      for (int i = 0; i < acc_samples; i++) {
+//		        sprintf((char *)tx_buffer, "ACC:\t%u\t%d\t%4.2f\t%4.2f\t%4.2f\r\n",
+//		                (unsigned int)acc_slot[i].timestamp,
+//		                acc_slot[i].sensor_tag,
+//		                lsm6dso_from_fs2_to_mg(acc_slot[i].sensor_data.x),
+//		                lsm6dso_from_fs2_to_mg(acc_slot[i].sensor_data.y),
+//		                lsm6dso_from_fs2_to_mg(acc_slot[i].sensor_data.z));
+//		      }
+//
+//	}
 
 }
 
@@ -238,4 +351,18 @@ float_t lsm6dso_from_fs2_to_mg(int16_t lsb)
   return ((float_t)lsb) * 0.061f;
 }
 
+float_t lsm6dso_from_fs125_to_mdps(int16_t lsb)
+{
+  return ((float_t)lsb) * 4.375f;
+}
+
+float_t lis2mdl_from_lsb_to_mgauss(int16_t lsb)
+{
+  return ((float_t)lsb * 1.5f);
+}
+
+float_t lsm6dso_from_lsb_to_celsius(int16_t lsb)
+{
+  return (((float_t)lsb / 256.0f) + 25.0f);
+}
 

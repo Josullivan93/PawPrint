@@ -56,8 +56,7 @@
 
 /* External variables --------------------------------------------------------*/
 extern PCD_HandleTypeDef hpcd_USB_OTG_FS;
-extern DMA_HandleTypeDef hdma_sdmmc1_rx;
-extern DMA_HandleTypeDef hdma_sdmmc1_tx;
+extern DMA_HandleTypeDef hdma_sdmmc1;
 extern SD_HandleTypeDef hsd1;
 /* USER CODE BEGIN EV */
 
@@ -251,24 +250,10 @@ void DMA2_Channel4_IRQHandler(void)
   /* USER CODE BEGIN DMA2_Channel4_IRQn 0 */
 
   /* USER CODE END DMA2_Channel4_IRQn 0 */
-  HAL_DMA_IRQHandler(&hdma_sdmmc1_rx);
+  HAL_DMA_IRQHandler(&hdma_sdmmc1);
   /* USER CODE BEGIN DMA2_Channel4_IRQn 1 */
 
   /* USER CODE END DMA2_Channel4_IRQn 1 */
-}
-
-/**
-  * @brief This function handles DMA2 channel5 global interrupt.
-  */
-void DMA2_Channel5_IRQHandler(void)
-{
-  /* USER CODE BEGIN DMA2_Channel5_IRQn 0 */
-
-  /* USER CODE END DMA2_Channel5_IRQn 0 */
-  HAL_DMA_IRQHandler(&hdma_sdmmc1_tx);
-  /* USER CODE BEGIN DMA2_Channel5_IRQn 1 */
-
-  /* USER CODE END DMA2_Channel5_IRQn 1 */
 }
 
 /**

@@ -52,15 +52,20 @@ I2C_HandleTypeDef hi2c3;
 RTC_HandleTypeDef hrtc;
 
 SD_HandleTypeDef hsd1;
-DMA_HandleTypeDef hdma_sdmmc1_rx;
-DMA_HandleTypeDef hdma_sdmmc1_tx;
+DMA_HandleTypeDef hdma_sdmmc1;
 
 /* USER CODE BEGIN PV */
+uint8_t LSM6DSO_FIFO_RDY;
+uint8_t OVERTEMP;
+
+FRESULT mountStatus;
+FRESULT volMakeStatus;
+FRESULT fileCreateStatus;
+uint8_t rtext[_MAX_SS];
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
-void PeriphCommonClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
 static void MX_I2C3_Init(void);
@@ -79,13 +84,17 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
 	// Over Temp gets priority
 	if (GPIO_Pin == TEMP_INT_Pin){
 
+		OVERTEMP = 1;
+
 		// Reset All Tags / Emergency shut down
 
 	}
 	else if (GPIO_Pin == IMU_INT_Pin){
 
+		LSM6DSO_FIFO_RDY = 1;
+
 		// Read Function from FIFO
-		//pawprint_readFIFO(&hi2c3);
+
 		//char *FIFOFULL = "FIFO FULL";
 		//while(1){
 		//CDC_Transmit_FS((uint8_t *) FIFOFULL, strlen(FIFOFULL));
@@ -118,9 +127,6 @@ int main(void)
   /* Configure the system clock */
   SystemClock_Config();
 
-/* Configure the peripherals common clocks */
-  PeriphCommonClock_Config();
-
   /* USER CODE BEGIN SysInit */
 
   /* USER CODE END SysInit */
@@ -130,15 +136,37 @@ int main(void)
   MX_DMA_Init();
   MX_I2C3_Init();
   MX_SDMMC1_SD_Init();
-  MX_FATFS_Init();
   MX_USB_DEVICE_Init();
   MX_RTC_Init();
+  MX_FATFS_Init();
   /* USER CODE BEGIN 2 */
+  mountStatus = f_mount(&SDFatFS, (TCHAR const*)SDPath, 1);
+  if ( mountStatus != FR_OK){
+	  Error_Handler();
+  }
 
+/*  HAL_Delay(500);
+
+  volMakeStatus = f_mkfs((TCHAR const*)SDPath, FM_ANY, 0, rtext, sizeof(rtext));
+  if ( volMakeStatus != FR_OK){
+	  Error_Handler();
+  }*/
+  HAL_Delay(500);
+
+  fileCreateStatus = f_open(&SDFile, "Out.csv", FA_CREATE_ALWAYS | FA_WRITE);
+  if ( fileCreateStatus != FR_OK){
+	  Error_Handler();
+  }
+
+  f_printf(&SDFile,"TimeStamp (s), Tag, Accel X, Accel Y, Accel Z, Gyro X, Gyro Y, Gyro Z, Temp (C)\n");
+
+  f_close( &SDFile );
   /* Search for connection via USB */
   /* Once Received proceed to init and data collection */
   // Initialise Sensor
   pawprint_init(&hi2c3);
+
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -149,9 +177,18 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 
-	  pawprint_readFIFO(&hi2c3);
-	  HAL_Delay(1000);
+	  if ( OVERTEMP == 1){
+		  HAL_PWREx_EnterSHUTDOWNMode(); // Future iterations should have physical control here - skip MCU and cut power from battery with Temp_INT
+	  }
 
+	  if (LSM6DSO_FIFO_RDY == 1 ){
+
+		  pawprint_readFIFO(&hi2c3);
+		  //FIFO_out;
+
+		  // Reset pin
+		  LSM6DSO_FIFO_RDY = 0;
+	  }
   }
   /* USER CODE END 3 */
 }
@@ -200,32 +237,6 @@ void SystemClock_Config(void)
   RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
   if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
-  {
-    Error_Handler();
-  }
-}
-
-/**
-  * @brief Peripherals Common Clock Configuration
-  * @retval None
-  */
-void PeriphCommonClock_Config(void)
-{
-  RCC_PeriphCLKInitTypeDef PeriphClkInit = {0};
-
-  /** Initializes the peripherals clock
-  */
-  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_USB|RCC_PERIPHCLK_SDMMC1;
-  PeriphClkInit.UsbClockSelection = RCC_USBCLKSOURCE_PLLSAI1;
-  PeriphClkInit.Sdmmc1ClockSelection = RCC_SDMMC1CLKSOURCE_PLLSAI1;
-  PeriphClkInit.PLLSAI1.PLLSAI1Source = RCC_PLLSOURCE_HSE;
-  PeriphClkInit.PLLSAI1.PLLSAI1M = 1;
-  PeriphClkInit.PLLSAI1.PLLSAI1N = 8;
-  PeriphClkInit.PLLSAI1.PLLSAI1P = RCC_PLLP_DIV7;
-  PeriphClkInit.PLLSAI1.PLLSAI1Q = RCC_PLLQ_DIV2;
-  PeriphClkInit.PLLSAI1.PLLSAI1R = RCC_PLLR_DIV2;
-  PeriphClkInit.PLLSAI1.PLLSAI1ClockOut = RCC_PLLSAI1_48M2CLK;
-  if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
   {
     Error_Handler();
   }
@@ -362,11 +373,11 @@ static void MX_SDMMC1_SD_Init(void)
   hsd1.Init.ClockEdge = SDMMC_CLOCK_EDGE_RISING;
   hsd1.Init.ClockBypass = SDMMC_CLOCK_BYPASS_DISABLE;
   hsd1.Init.ClockPowerSave = SDMMC_CLOCK_POWER_SAVE_DISABLE;
-  hsd1.Init.BusWide = SDMMC_BUS_WIDE_4B;
+  hsd1.Init.BusWide = SDMMC_BUS_WIDE_1B;
   hsd1.Init.HardwareFlowControl = SDMMC_HARDWARE_FLOW_CONTROL_DISABLE;
-  hsd1.Init.ClockDiv = 0;
+  hsd1.Init.ClockDiv = 1;
   /* USER CODE BEGIN SDMMC1_Init 2 */
-
+  hsd1.Init.BusWide = SDMMC_BUS_WIDE_1B;
   /* USER CODE END SDMMC1_Init 2 */
 
 }
@@ -384,9 +395,6 @@ static void MX_DMA_Init(void)
   /* DMA2_Channel4_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA2_Channel4_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA2_Channel4_IRQn);
-  /* DMA2_Channel5_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA2_Channel5_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(DMA2_Channel5_IRQn);
 
 }
 
@@ -422,7 +430,7 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin : SDMMC_Detect_Pin */
   GPIO_InitStruct.Pin = SDMMC_Detect_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
   HAL_GPIO_Init(SDMMC_Detect_GPIO_Port, &GPIO_InitStruct);
 
   /* EXTI interrupt init*/
@@ -437,6 +445,18 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+
+void WriteFile(char const* fileName, char* buffer, size_t size)
+{
+    FIL file;
+    FATFS fs;
+    UINT bw;
+    FRESULT fr;
+    fr = f_mount(&fs, "0:/", 3);
+    fr = f_open(&file, fileName, FA_WRITE | FA_CREATE_ALWAYS);
+    fr = f_write(&file, buffer, size, &bw);
+    fr = f_close(&file);
+}
 
 /* USER CODE END 4 */
 

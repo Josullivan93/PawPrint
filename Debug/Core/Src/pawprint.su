@@ -1,3 +1,6 @@
 ../Core/Src/pawprint.c:26:6:pawprint_init	24	static
-../Core/Src/pawprint.c:184:6:pawprint_readFIFO	88	static
-../Core/Src/pawprint.c:236:9:lsm6dso_from_fs2_to_mg	16	static
+../Core/Src/pawprint.c:186:6:pawprint_readFIFO	120	static
+../Core/Src/pawprint.c:349:9:lsm6dso_from_fs2_to_mg	16	static
+../Core/Src/pawprint.c:354:9:lsm6dso_from_fs125_to_mdps	16	static
+../Core/Src/pawprint.c:359:9:lis2mdl_from_lsb_to_mgauss	16	static
+../Core/Src/pawprint.c:364:9:lsm6dso_from_lsb_to_celsius	16	static
