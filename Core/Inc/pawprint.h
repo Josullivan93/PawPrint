@@ -14,6 +14,8 @@
 #include "stts751.h"
 #include "st_fifo.h"
 
+#define BUFFER_SIZE 64000
+
 /* Simple output struct - strips most features of ST_fifo struct that are not used by PawPrint */
 typedef struct
 {
@@ -36,7 +38,7 @@ typedef struct
 
 void pawprint_init( I2C_HandleTypeDef *i2cHandle );
 
-void pawprint_readFIFO( I2C_HandleTypeDef *i2cHandle );
+void pawprint_readFIFO( I2C_HandleTypeDef *i2cHandle , char *outBUFFER, int *bufferLength, int *writeIndex);
 
 float_t lsm6dso_from_fs2_to_mg(int16_t lsb);
 

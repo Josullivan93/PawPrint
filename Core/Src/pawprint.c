@@ -14,7 +14,7 @@
 #include "pawprint.h"
 
 /* Private Variables */
-static FIFO_out_file FIFO_out[512];
+//static FIFO_out_file FIFO_out[512];
 //static uint8_t tx_buffer[1000];
 //static st_fifo_raw_slot raw_slot[126];
 //static st_fifo_out_slot out_slot[126];
@@ -183,16 +183,17 @@ void pawprint_init( I2C_HandleTypeDef *i2cHandle ){
 
 /* FIFO read and decode - uses st_fifo repo from STMicro git */
 
-void pawprint_readFIFO( I2C_HandleTypeDef *i2cHandle ){
+void pawprint_readFIFO( I2C_HandleTypeDef *i2cHandle , char *outBUFFER, int *bufferLength, int *writeIndex){
 
 	st_fifo_conf FIFOconf;
 	uint8_t FIFOstatus[2];
 	uint16_t FIFOdepth = 0;
+	//FIFO_out_file FIFO_out[512];
 
 	FIFOconf.device = ST_FIFO_LSM6DSO;
-	FIFOconf.bdr_xl = 0; // 104 - as batching timestamp can set to 0
-	FIFOconf.bdr_gy = 0;
-	FIFOconf.bdr_vsens = 0;
+	FIFOconf.bdr_xl = 104; // 104 - as batching timestamp can set to 0
+	FIFOconf.bdr_gy = 104;
+	FIFOconf.bdr_vsens = 104;
 
 	st_fifo_init(&FIFOconf);
 	st_fifo_raw_slot *raw_slot;
@@ -215,7 +216,7 @@ void pawprint_readFIFO( I2C_HandleTypeDef *i2cHandle ){
 
 		while(FIFOdepth--) {
 //
-			LSM6DSO_ReadRegs(i2cHandle, LSM6DSO_REG_FIFO_DATA_OUT_X_L, &raw_slot[slots].fifo_data_out[0],7 );
+			LSM6DSO_ReadRegs(i2cHandle, LSM6DSO_REG_FIFO_DATA_OUT_TAG, &raw_slot[slots].fifo_data_out[0],7 );
 //
 			slots++;
 		}
@@ -245,53 +246,106 @@ void pawprint_readFIFO( I2C_HandleTypeDef *i2cHandle ){
 
 		// Convert to real units & add to formatted strings
 	    for (int i = 0; i < acc_samples; i++) {
-	    	FIFO_out[row_count].timestamp = acc_slot[i].timestamp;
-	    	FIFO_out[row_count].sensor_tag = acc_slot[i].sensor_tag;
-	    	FIFO_out[row_count].sensor_data.x = lsm6dso_from_fs2_to_mg(acc_slot[i].sensor_data.x);
-	    	FIFO_out[row_count].sensor_data.y = lsm6dso_from_fs2_to_mg(acc_slot[i].sensor_data.y);
-	    	FIFO_out[row_count].sensor_data.z = lsm6dso_from_fs2_to_mg(acc_slot[i].sensor_data.z);
-	    	FIFO_out[row_count].sensor_data.temp = 0;
+	    	uint8_t outLength = 0;
+//	    	FIFO_out[row_count].timestamp = acc_slot[i].timestamp;
+//	    	FIFO_out[row_count].sensor_tag = acc_slot[i].sensor_tag;
+//	    	FIFO_out[row_count].sensor_data.x = lsm6dso_from_fs2_to_mg(acc_slot[i].sensor_data.x);
+//	    	FIFO_out[row_count].sensor_data.y = lsm6dso_from_fs2_to_mg(acc_slot[i].sensor_data.y);
+//	    	FIFO_out[row_count].sensor_data.z = lsm6dso_from_fs2_to_mg(acc_slot[i].sensor_data.z);
+//	    	FIFO_out[row_count].sensor_data.temp = 0;
+
+	    	outLength = snprintf(&outBUFFER[*writeIndex],(BUFFER_SIZE-(*bufferLength)) ,"%lu,%u,%.3f,%.3f,%.3f,NA\n",
+	    		    			acc_slot[i].timestamp,
+	    						acc_slot[i].sensor_tag,
+								lsm6dso_from_fs2_to_mg(acc_slot[i].sensor_data.x),
+								lsm6dso_from_fs2_to_mg(acc_slot[i].sensor_data.y),
+								lsm6dso_from_fs2_to_mg(acc_slot[i].sensor_data.z));
+
+	    	*bufferLength += outLength;
+	    	*writeIndex += outLength;
 	    	row_count++;
 	    }
 
 	    for (int i = 0; i < gyr_samples; i++) {
-	    	FIFO_out[row_count].timestamp = gyr_slot[i].timestamp;
-	    	FIFO_out[row_count].sensor_tag = gyr_slot[i].sensor_tag;
-	    	FIFO_out[row_count].sensor_data.x = lsm6dso_from_fs125_to_mdps(gyr_slot[i].sensor_data.x);
-	    	FIFO_out[row_count].sensor_data.y = lsm6dso_from_fs125_to_mdps(gyr_slot[i].sensor_data.y);
-	    	FIFO_out[row_count].sensor_data.z = lsm6dso_from_fs125_to_mdps(gyr_slot[i].sensor_data.z);
-	    	FIFO_out[row_count].sensor_data.temp = 0;
+	    	uint8_t outLength = 0;
+//	    	FIFO_out[row_count].timestamp = gyr_slot[i].timestamp;
+//	    	FIFO_out[row_count].sensor_tag = gyr_slot[i].sensor_tag;
+//	    	FIFO_out[row_count].sensor_data.x = lsm6dso_from_fs125_to_mdps(gyr_slot[i].sensor_data.x);
+//	    	FIFO_out[row_count].sensor_data.y = lsm6dso_from_fs125_to_mdps(gyr_slot[i].sensor_data.y);
+//	    	FIFO_out[row_count].sensor_data.z = lsm6dso_from_fs125_to_mdps(gyr_slot[i].sensor_data.z);
+//	    	FIFO_out[row_count].sensor_data.temp = 0;
+
+	    	outLength = snprintf(&outBUFFER[*writeIndex],(BUFFER_SIZE-*bufferLength) , "%lu,%u,%.3f,%.3f,%.3f,NA\n",
+	    		    		    			gyr_slot[i].timestamp,
+	    		    						gyr_slot[i].sensor_tag,
+											lsm6dso_from_fs125_to_mdps(gyr_slot[i].sensor_data.x),
+											lsm6dso_from_fs125_to_mdps(gyr_slot[i].sensor_data.y),
+											lsm6dso_from_fs125_to_mdps(gyr_slot[i].sensor_data.z));
+	    	*bufferLength += outLength;
+	    	*writeIndex += outLength;
 	    	row_count++;
 	    }
 
 	    for (int i = 0; i < mag_samples; i++) {
-	    	FIFO_out[row_count].timestamp = mag_slot[i].timestamp;
-	    	FIFO_out[row_count].sensor_tag = mag_slot[i].sensor_tag;
-	    	FIFO_out[row_count].sensor_data.x = lis2mdl_from_lsb_to_mgauss(mag_slot[i].sensor_data.x);
-	    	FIFO_out[row_count].sensor_data.y = lis2mdl_from_lsb_to_mgauss(mag_slot[i].sensor_data.y);
-	    	FIFO_out[row_count].sensor_data.z = lis2mdl_from_lsb_to_mgauss(mag_slot[i].sensor_data.z);
-	    	FIFO_out[row_count].sensor_data.temp = 0;
+	    	uint8_t outLength = 0;
+//	    	FIFO_out[row_count].timestamp = mag_slot[i].timestamp;
+//	    	FIFO_out[row_count].sensor_tag = mag_slot[i].sensor_tag;
+//	    	FIFO_out[row_count].sensor_data.x = lis2mdl_from_lsb_to_mgauss(mag_slot[i].sensor_data.x);
+//	    	FIFO_out[row_count].sensor_data.y = lis2mdl_from_lsb_to_mgauss(mag_slot[i].sensor_data.y);
+//	    	FIFO_out[row_count].sensor_data.z = lis2mdl_from_lsb_to_mgauss(mag_slot[i].sensor_data.z);
+//	    	FIFO_out[row_count].sensor_data.temp = 0;
+
+
+	    	outLength = snprintf(&outBUFFER[*writeIndex],(BUFFER_SIZE-*bufferLength) , "%lu,%u,%.3f,%.3f,%.3f,NA\n",
+	    		    		    			mag_slot[i].timestamp,
+	    		    						mag_slot[i].sensor_tag,
+											lis2mdl_from_lsb_to_mgauss(mag_slot[i].sensor_data.x),
+											lis2mdl_from_lsb_to_mgauss(mag_slot[i].sensor_data.y),
+											lis2mdl_from_lsb_to_mgauss(mag_slot[i].sensor_data.z)
+											);
+
+	    	*bufferLength += outLength;
+	    	*writeIndex += outLength;
 	    	row_count++;
 	    }
 
 	    for (int i = 0; i < temp_samples; i++) {
-	    	FIFO_out[row_count].timestamp = temp_slot[i].timestamp;
-	    	FIFO_out[row_count].sensor_tag = temp_slot[i].sensor_tag;
-	    	FIFO_out[row_count].sensor_data.temp = lsm6dso_from_lsb_to_celsius(temp_slot[i].sensor_data.temp);
-	    	FIFO_out[row_count].sensor_data.x = 0;
-	    	FIFO_out[row_count].sensor_data.y = 0;
-	    	FIFO_out[row_count].sensor_data.z = 0;
+	    	uint8_t outLength = 0;
+//	    	FIFO_out[row_count].timestamp = temp_slot[i].timestamp;
+//	    	FIFO_out[row_count].sensor_tag = temp_slot[i].sensor_tag;
+//	    	FIFO_out[row_count].sensor_data.temp = lsm6dso_from_lsb_to_celsius(temp_slot[i].sensor_data.temp);
+//	    	FIFO_out[row_count].sensor_data.x = 0;
+//	    	FIFO_out[row_count].sensor_data.y = 0;
+//	    	FIFO_out[row_count].sensor_data.z = 0;
+
+	    	outLength = snprintf(&outBUFFER[*writeIndex],(BUFFER_SIZE-*bufferLength) , "%lu,%u,NA,NA,NA,%.2f\n",
+	    		    		    			temp_slot[i].timestamp,
+	    		    						temp_slot[i].sensor_tag,
+											lsm6dso_from_lsb_to_celsius(temp_slot[i].sensor_data.temp)
+											);
+
+	    	*bufferLength += outLength;
+	    	*writeIndex += outLength;
 	    	row_count++;
 	    }
 
 	    for (int i = 0; i < ext_temp_samples; i++) {
-	    	FIFO_out[row_count].timestamp = ext_temp_slot[i].timestamp;
-	    	FIFO_out[row_count].sensor_tag = ext_temp_slot[i].sensor_tag;
+	    	uint8_t outLength = 0;
+//	    	FIFO_out[row_count].timestamp = ext_temp_slot[i].timestamp;
+//	    	FIFO_out[row_count].sensor_tag = ext_temp_slot[i].sensor_tag;
 	    	uint16_t temp_raw = (ext_temp_slot[i].sensor_data.x & 0xFF00) | (ext_temp_slot[i].sensor_data.y >> 8);
-	    	FIFO_out[row_count].sensor_data.temp = lsm6dso_from_lsb_to_celsius(temp_raw);
-	    	FIFO_out[row_count].sensor_data.x = 0;
-	    	FIFO_out[row_count].sensor_data.y = 0;
-	    	FIFO_out[row_count].sensor_data.z = 0;
+//	    	FIFO_out[row_count].sensor_data.temp = lsm6dso_from_lsb_to_celsius(temp_raw);
+//	    	FIFO_out[row_count].sensor_data.x = 0;
+//	    	FIFO_out[row_count].sensor_data.y = 0;
+//	    	FIFO_out[row_count].sensor_data.z = 0;
+
+	    	outLength = snprintf(&outBUFFER[*writeIndex],(BUFFER_SIZE-*bufferLength) , "%lu,%u,NA,NA,NA,%.2f\n",
+	    			ext_temp_slot[i].timestamp,
+					ext_temp_slot[i].sensor_tag,
+					lsm6dso_from_lsb_to_celsius(temp_raw));
+
+	    	*bufferLength += outLength;
+	    	*writeIndex += outLength;
 	    	row_count++;
 	    }
 

@@ -238,7 +238,6 @@ st_fifo_status st_fifo_decode(st_fifo_out_slot *fifo_out_slot,
 
     if ((tag_counter != (tag_counter_old)) && dtime_min != 0u)
     {
-
       uint8_t diff_tag_counter;
 
       if (tag_counter < tag_counter_old)
@@ -296,15 +295,7 @@ st_fifo_status st_fifo_decode(st_fifo_out_slot *fifo_out_slot,
           continue;
         }
 
-        if (tag == TAG_STEP_COUNTER || tag == TAG_MLC_RESULT)
-        {
-          (void)memcpy(&fifo_out_slot[j].timestamp, &fifo_raw_slot[i].fifo_data_out[3],
-                       4);
-        }
-        else
-        {
-          fifo_out_slot[j].timestamp = timestamp;
-        }
+        fifo_out_slot[j].timestamp = timestamp;
 
         fifo_out_slot[j].sensor_tag = sensor_type;
         (void)memcpy(fifo_out_slot[j].sensor_data.raw_data,

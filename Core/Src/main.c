@@ -38,7 +38,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+#define BUFFER_SIZE 64000
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -57,6 +57,11 @@ DMA_HandleTypeDef hdma_sdmmc1;
 /* USER CODE BEGIN PV */
 uint8_t LSM6DSO_FIFO_RDY;
 uint8_t OVERTEMP;
+
+int bufferLength = 0;
+int readIndex = 0;
+int writeIndex = 0;
+char outBUF[BUFFER_SIZE];
 
 FRESULT mountStatus;
 FRESULT volMakeStatus;
@@ -158,7 +163,7 @@ int main(void)
 	  Error_Handler();
   }
 
-  f_printf(&SDFile,"TimeStamp (s), Tag, Accel X, Accel Y, Accel Z, Gyro X, Gyro Y, Gyro Z, Temp (C)\n");
+  f_printf(&SDFile,"TimeStamp,Tag,X,Y,Z,Temp\n");
 
   f_close( &SDFile );
   /* Search for connection via USB */
@@ -166,7 +171,7 @@ int main(void)
   // Initialise Sensor
   pawprint_init(&hi2c3);
 
-
+  LSM6DSO_FIFO_RDY = 0;
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -181,14 +186,12 @@ int main(void)
 		  HAL_PWREx_EnterSHUTDOWNMode(); // Future iterations should have physical control here - skip MCU and cut power from battery with Temp_INT
 	  }
 
-	  if (LSM6DSO_FIFO_RDY == 1 ){
-
-		  pawprint_readFIFO(&hi2c3);
+//	  if (LSM6DSO_FIFO_RDY == 1 ){
+		  pawprint_readFIFO(&hi2c3, &outBUF, &bufferLength, &writeIndex);
 		  //FIFO_out;
-
 		  // Reset pin
 		  LSM6DSO_FIFO_RDY = 0;
-	  }
+	//  }
   }
   /* USER CODE END 3 */
 }
@@ -445,18 +448,6 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-
-void WriteFile(char const* fileName, char* buffer, size_t size)
-{
-    FIL file;
-    FATFS fs;
-    UINT bw;
-    FRESULT fr;
-    fr = f_mount(&fs, "0:/", 3);
-    fr = f_open(&file, fileName, FA_WRITE | FA_CREATE_ALWAYS);
-    fr = f_write(&file, buffer, size, &bw);
-    fr = f_close(&file);
-}
 
 /* USER CODE END 4 */
 
