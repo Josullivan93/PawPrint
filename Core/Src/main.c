@@ -38,7 +38,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define BUFFER_SIZE 64000
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -186,12 +186,14 @@ int main(void)
 		  HAL_PWREx_EnterSHUTDOWNMode(); // Future iterations should have physical control here - skip MCU and cut power from battery with Temp_INT
 	  }
 
-//	  if (LSM6DSO_FIFO_RDY == 1 ){
-		  pawprint_readFIFO(&hi2c3, &outBUF, &bufferLength, &writeIndex);
-		  //FIFO_out;
-		  // Reset pin
+	  if (LSM6DSO_FIFO_RDY == 1 ){
 		  LSM6DSO_FIFO_RDY = 0;
-	//  }
+		  pawprint_readFIFO(&hi2c3, outBUF, &bufferLength, &writeIndex);
+	  }
+
+		  if ( bufferLength >= (33280) ){
+			  pawprint_WriteSD( &SDFile , outBUF, &bufferLength, &readIndex);
+		  }
   }
   /* USER CODE END 3 */
 }

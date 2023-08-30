@@ -9,12 +9,13 @@
 #define INC_PAWPRINT_H_
 
 #include "math.h"
+#include "fatfs.h"
 #include "lsm6dso.h"
 #include "lis2mdl.h"
 #include "stts751.h"
 #include "st_fifo.h"
 
-#define BUFFER_SIZE 64000
+#define BUFFER_SIZE 51200
 
 /* Simple output struct - strips most features of ST_fifo struct that are not used by PawPrint */
 typedef struct
@@ -39,6 +40,8 @@ typedef struct
 void pawprint_init( I2C_HandleTypeDef *i2cHandle );
 
 void pawprint_readFIFO( I2C_HandleTypeDef *i2cHandle , char *outBUFFER, int *bufferLength, int *writeIndex);
+
+void pawprint_WriteSD( FIL *SDFile , char *outBUFFER, int *bufferLength, int *readIndex);
 
 float_t lsm6dso_from_fs2_to_mg(int16_t lsb);
 

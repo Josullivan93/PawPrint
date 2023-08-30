@@ -6,7 +6,9 @@
  */
 
 #include "usbd_cdc_if.h"
+#include "stdio.h"
 #include "math.h"
+#include "fatfs.h"
 #include "st_fifo.h"
 #include "lsm6dso.h"
 #include "lis2mdl.h"
@@ -126,7 +128,7 @@ void pawprint_init( I2C_HandleTypeDef *i2cHandle ){
 	LSM6DSO_WriteReg(i2cHandle, LSM6DSO_REG_FIFO_CTRL3 , &RegDat); // Set BDR for XL and Gyro (104Hz both)
 	RegDat = 0x56;
 	LSM6DSO_WriteReg(i2cHandle, LSM6DSO_REG_FIFO_CTRL4 , &RegDat);// Set to continuous mode & batch Temp and Timestamp
-	RegDat = 0x41;
+	RegDat = 0x00; //RegDat = 0x41;
 	LSM6DSO_WriteReg(i2cHandle, LSM6DSO_REG_TAP_CFG0 , &RegDat); // Latch interrupt & clear on read
 	RegDat = 0x38;
 	LSM6DSO_WriteReg(i2cHandle, LSM6DSO_REG_INT1_CTRL , &RegDat); // FIFO int on INT1
@@ -200,13 +202,12 @@ void pawprint_readFIFO( I2C_HandleTypeDef *i2cHandle , char *outBUFFER, int *buf
 	st_fifo_out_slot *out_slot;
 	uint16_t out_slot_size;
 
-
+	LSM6DSO_ReadRegs(i2cHandle, LSM6DSO_REG_FIFO_STATUS1, &FIFOstatus[0], 2);
 	/* Confirm watermark has been met LSM6DSO_REG_FIFO_STATUS2 */
 	LSM6DSO_ReadRegs(i2cHandle, LSM6DSO_REG_FIFO_STATUS1, &FIFOstatus[0], 2);
 
 	if (((FIFOstatus[1] >> 7)  & 0x01)||((FIFOstatus[1] >> 6)  & 0x01)||((FIFOstatus[1] >> 5)  & 0x01)){ // Check WTM threshold bit, overrun bit and full bit
 		/* Get number of samples in FIFO*/
-		//LSM6DSO_ReadReg(i2cHandle, LSM6DSO_REG_FIFO_STATUS1, &FIFOstatus[1]);
 		FIFOdepth = ((((uint16_t)FIFOstatus[1] & 0x03) << 8) + (uint16_t)FIFOstatus[0]);
 
 		raw_slot = malloc(FIFOdepth * sizeof(st_fifo_raw_slot));
@@ -215,9 +216,9 @@ void pawprint_readFIFO( I2C_HandleTypeDef *i2cHandle , char *outBUFFER, int *buf
 		int slots = 0;
 
 		while(FIFOdepth--) {
-//
+
 			LSM6DSO_ReadRegs(i2cHandle, LSM6DSO_REG_FIFO_DATA_OUT_TAG, &raw_slot[slots].fifo_data_out[0],7 );
-//
+
 			slots++;
 		}
 
@@ -263,6 +264,14 @@ void pawprint_readFIFO( I2C_HandleTypeDef *i2cHandle , char *outBUFFER, int *buf
 
 	    	*bufferLength += outLength;
 	    	*writeIndex += outLength;
+
+	    	// If Buffer were to overrun would instead overwrite oldest entry
+
+	    	if (*writeIndex >= BUFFER_SIZE)
+	    		    	{
+	    		    	    *writeIndex = 0;
+	    		    	}
+
 	    	row_count++;
 	    }
 
@@ -283,6 +292,12 @@ void pawprint_readFIFO( I2C_HandleTypeDef *i2cHandle , char *outBUFFER, int *buf
 											lsm6dso_from_fs125_to_mdps(gyr_slot[i].sensor_data.z));
 	    	*bufferLength += outLength;
 	    	*writeIndex += outLength;
+
+	    	if (*writeIndex >= BUFFER_SIZE)
+	    		    	{
+	    		    	    *writeIndex = 0;
+	    		    	}
+
 	    	row_count++;
 	    }
 
@@ -306,6 +321,12 @@ void pawprint_readFIFO( I2C_HandleTypeDef *i2cHandle , char *outBUFFER, int *buf
 
 	    	*bufferLength += outLength;
 	    	*writeIndex += outLength;
+
+	    	if (*writeIndex >= BUFFER_SIZE)
+	    		    	{
+	    		    	    *writeIndex = 0;
+	    		    	}
+
 	    	row_count++;
 	    }
 
@@ -326,6 +347,12 @@ void pawprint_readFIFO( I2C_HandleTypeDef *i2cHandle , char *outBUFFER, int *buf
 
 	    	*bufferLength += outLength;
 	    	*writeIndex += outLength;
+
+	    	if (*writeIndex >= BUFFER_SIZE)
+	    		    	{
+	    		    	    *writeIndex = 0;
+	    		    	}
+
 	    	row_count++;
 	    }
 
@@ -346,57 +373,48 @@ void pawprint_readFIFO( I2C_HandleTypeDef *i2cHandle , char *outBUFFER, int *buf
 
 	    	*bufferLength += outLength;
 	    	*writeIndex += outLength;
+
+	    	if (*writeIndex >= BUFFER_SIZE)
+	    	{
+	    	    *writeIndex = 0;
+	    	}
+
 	    	row_count++;
 	    }
 
 	}
 
-//	uint8_t FIFO_STATUS1 = 0, FIFO_STATUS2 = 0, FIFO_tag_reg = 0, FIFO_tag = 0, FIFO_counter_old = 0;
-//	uint16_t FIFO_Depth = 0, FIFO_Slots = 0, Out_FIFO_Slots, acc_samples;
-//	//lsm6dso_tags_t	lsm6dso_tags;
-//
-//	/* Confirm watermark has been met LSM6DSO_REG_FIFO_STATUS2 */
-//	LSM6DSO_ReadReg(i2cHandle, LSM6DSO_REG_FIFO_STATUS2, &FIFO_STATUS2);
-//	HAL_Delay(1000);
-//	if (((FIFO_STATUS2 >> 7)  & 0x01)||((FIFO_STATUS2 >> 6)  & 0x01)||((FIFO_STATUS2 >> 5)  & 0x01)){ // Check WTM threshold bit, overrun bit and full bit
-//		/* Get number of samples in FIFO*/
-//		LSM6DSO_ReadReg(i2cHandle, LSM6DSO_REG_FIFO_STATUS1, &FIFO_STATUS1);
-//		FIFO_Depth = ((((uint16_t)FIFO_STATUS2 & 0x03) << 8) + (uint16_t)FIFO_STATUS1);
-//		/* Loop until FIFO Empty */
-//		while (FIFO_Depth--){
-//			/* Read Tag and store */
-//			LSM6DSO_ReadReg(i2cHandle, LSM6DSO_REG_FIFO_STATUS1, (uint8_t *)&raw_slot[FIFO_Slots].fifo_data_out[0]);
-//			/* Read Raw Data */
-//			LSM6DSO_ReadRegs(i2cHandle, LSM6DSO_REG_FIFO_DATA_OUT_X_L, &raw_slot[FIFO_Slots].fifo_data_out[1],6 );
-//			//FIFO_tag = (FIFO_tag_reg >> 3); // Take tag register and right shift to leave only the tag
-//			FIFO_Slots++;
-//			//switch(FIFO_tag) {
-//			//case LSM6DSO_XL_NC_TAG:
-//				// Get data out
-//				// Convert to mg
-//
-//		}
-//		/* Filter based on sensor type */
-//		st_fifo_decode(out_slot, raw_slot, &Out_FIFO_Slots, FIFO_Slots);
-//		st_fifo_sort(out_slot, Out_FIFO_Slots);
-//		acc_samples = st_fifo_get_sensor_occurrence(out_slot,Out_FIFO_Slots, ST_FIFO_ACCELEROMETER);
-//
-//		 /* Count how many acc and gyro samples */
-//		      st_fifo_extract_sensor(acc_slot, out_slot, Out_FIFO_Slots,
-//		                             ST_FIFO_ACCELEROMETER);
-//		      st_fifo_extract_sensor(gyr_slot, out_slot, Out_FIFO_Slots,
-//		                             ST_FIFO_GYROSCOPE);
-//
-//		      for (int i = 0; i < acc_samples; i++) {
-//		        sprintf((char *)tx_buffer, "ACC:\t%u\t%d\t%4.2f\t%4.2f\t%4.2f\r\n",
-//		                (unsigned int)acc_slot[i].timestamp,
-//		                acc_slot[i].sensor_tag,
-//		                lsm6dso_from_fs2_to_mg(acc_slot[i].sensor_data.x),
-//		                lsm6dso_from_fs2_to_mg(acc_slot[i].sensor_data.y),
-//		                lsm6dso_from_fs2_to_mg(acc_slot[i].sensor_data.z));
-//		      }
-//
-//	}
+}
+
+void pawprint_WriteSD( FIL *SDFile , char *outBUFFER, int *bufferLength, int *readIndex){
+
+	int clusterSize = 5120;
+	unsigned int byteCount = 0;
+
+	f_open(SDFile, "Out.csv", FA_OPEN_APPEND | FA_WRITE);
+
+	for (int i = 0; i <= *bufferLength/clusterSize; i++) {
+
+		int readIndex_end = *readIndex + (clusterSize-1);
+		*bufferLength -= ((readIndex_end - *readIndex )+ 1);
+		if (readIndex_end > BUFFER_SIZE){
+
+			readIndex_end -= BUFFER_SIZE;
+
+			f_write(SDFile, &outBUFFER[*readIndex], ((BUFFER_SIZE - *readIndex)+1), &byteCount);
+			f_write(SDFile, &outBUFFER, readIndex_end, &byteCount);
+
+		}
+		else {
+			f_write(SDFile, &outBUFFER[*readIndex], clusterSize, &byteCount);
+		}
+		*readIndex = (readIndex_end+1);
+		if (*readIndex > BUFFER_SIZE){
+			*readIndex = 0;
+		}
+	}
+
+	f_close( SDFile );
 
 }
 
