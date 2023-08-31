@@ -142,8 +142,8 @@ void pawprint_init( I2C_HandleTypeDef *i2cHandle ){
 	LSM6DSO_WriteReg(i2cHandle, LSM6DSO_REG_SLV0_ADD, &RegDat);// Set address slv0
 	RegDat = LIS2MDL_REG_OUTX_L;
 	LSM6DSO_WriteReg(i2cHandle, LSM6DSO_REG_SLV0_SUBADD, &RegDat);// Set start register for data output
-	RegDat = 0x0E;
-	LSM6DSO_WriteReg(i2cHandle, LSM6DSO_REG_SLV0_CONFIG, &RegDat);// Set bytes to read
+	RegDat = 0xCE;
+	LSM6DSO_WriteReg(i2cHandle, LSM6DSO_REG_SLV0_CONFIG, &RegDat);// Set bytes to read 0E Default 104Hz
 
 	// STTS751 Peripheral enable
 	RegDat = STTS751_I2C_ADDR;
@@ -166,9 +166,9 @@ void pawprint_init( I2C_HandleTypeDef *i2cHandle ){
 	LSM6DSO_WriteReg(i2cHandle, LSM6DSO_REG_CTRL7_G, &RegDat);// Gyro High performance disabled
 	RegDat = 0x20;
 	LSM6DSO_WriteReg(i2cHandle, LSM6DSO_REG_CTRL10_C, &RegDat);// enable timestamps
-	RegDat = 0x40;
+	RegDat = 0x10;
 	LSM6DSO_WriteReg(i2cHandle, LSM6DSO_REG_CTRL1_XL, &RegDat);//Set acc scale and sample rate  - ctrl 1 xl
-	RegDat = 0x40;
+	RegDat = 0x10;
 	LSM6DSO_WriteReg(i2cHandle, LSM6DSO_REG_CTRL2_G, &RegDat);// Gyro scale and sample rate - ctrl 2 g
 
 	/* Enable I2C Master to begin Data collection */
@@ -194,9 +194,9 @@ void pawprint_readFIFO( I2C_HandleTypeDef *i2cHandle , char *outBUFFER, int *buf
 //	FIFO_out_file FIFO_out;
 
 	FIFOconf.device = ST_FIFO_LSM6DSO;
-	FIFOconf.bdr_xl = 104; // 104 - as batching timestamp can set to 0
-	FIFOconf.bdr_gy = 104;
-	FIFOconf.bdr_vsens = 104;
+	FIFOconf.bdr_xl = 12.5; // 104 - as batching timestamp can set to 0
+	FIFOconf.bdr_gy = 12.5;
+	FIFOconf.bdr_vsens = 12.5;
 
 	st_fifo_init(&FIFOconf);
 	uint16_t out_slot_size = 0;
@@ -289,6 +289,7 @@ void pawprint_readFIFO( I2C_HandleTypeDef *i2cHandle , char *outBUFFER, int *buf
 
 		if (*bufferLength != 0 ){
 			*writeIndex = *bufferLength;
+			snprintf(&outBUFFER[*writeIndex],(BUFFER_SIZE-(*writeIndex)) ,"\nB,R,E,A,K\n");
 		}
 
 		// Convert to real units & add to formatted strings
@@ -342,13 +343,12 @@ void pawprint_WriteSD( FIL *SDFile , char *outBUFFER, int *bufferLength){
 
 	int failcount = 0;
 	unsigned int byteCount = 0;
-	int blockSize = 2048;
+	int blockSize = 5120;
 	int readChunk = ((*bufferLength / blockSize) * blockSize);
 
 	f_open(SDFile, "Out.csv", FA_OPEN_APPEND | FA_WRITE); // Open file for appending
 
 	for (int i = 0; i <= (readChunk/blockSize); i++){
-		f_lseek(SDFile, f_size(SDFile));
 		f_write(SDFile, &outBUFFER[i*blockSize], blockSize, &byteCount); // Write largest 512 multiple sector
 		if (byteCount != blockSize){
 
@@ -356,15 +356,16 @@ void pawprint_WriteSD( FIL *SDFile , char *outBUFFER, int *bufferLength){
 
 		}
 
-		f_sync(SDFile);
-		HAL_Delay(10);
+
+			f_sync(SDFile);
+
 	}
+
+	f_close(SDFile);
 
 	*bufferLength -= readChunk; // Get remainder length and set buffer length to accommodate it
 
-	memcpy(outBUFFER, &outBUFFER[readChunk], *bufferLength);  // Move remaining data to index 0
-
-	f_close(SDFile);
+	memmove(outBUFFER, &outBUFFER[readChunk], *bufferLength);  // Move remaining data to index 0
 
 }
 
