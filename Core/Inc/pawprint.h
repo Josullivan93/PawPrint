@@ -41,7 +41,7 @@ void pawprint_init( I2C_HandleTypeDef *i2cHandle );
 
 void pawprint_readFIFO( I2C_HandleTypeDef *i2cHandle , char *outBUFFER, int *bufferLength, int *writeIndex);
 
-void pawprint_WriteSD( FIL *SDFile , char *outBUFFER, int *bufferLength, int *readIndex);
+void pawprint_WriteSD( FIL *SDFile , char *outBUFFER, int *bufferLength);
 
 float_t lsm6dso_from_fs2_to_mg(int16_t lsb);
 

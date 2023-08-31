@@ -24,6 +24,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "usbd_cdc_if.h"
+#include "stdalign.h"
 #include "string.h"
 #include "lsm6dso.h"
 #include "lis2mdl.h"
@@ -98,13 +99,6 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
 
 		LSM6DSO_FIFO_RDY = 1;
 
-		// Read Function from FIFO
-
-		//char *FIFOFULL = "FIFO FULL";
-		//while(1){
-		//CDC_Transmit_FS((uint8_t *) FIFOFULL, strlen(FIFOFULL));
-		//HAL_Delay(1000);
-		//}
 	}
 }
 
@@ -145,9 +139,10 @@ int main(void)
   MX_RTC_Init();
   MX_FATFS_Init();
   /* USER CODE BEGIN 2 */
+  int attempts = 0;
   mountStatus = f_mount(&SDFatFS, (TCHAR const*)SDPath, 1);
-  if ( mountStatus != FR_OK){
-	  Error_Handler();
+  while ( mountStatus != FR_OK && attempts < 3){
+	  mountStatus = f_mount(&SDFatFS, (TCHAR const*)SDPath, 1);
   }
 
 /*  HAL_Delay(500);
@@ -163,7 +158,7 @@ int main(void)
 	  Error_Handler();
   }
 
-  f_printf(&SDFile,"TimeStamp,Tag,X,Y,Z,Temp\n");
+  f_printf(&SDFile,"TimeStamp,Tag,X,Y,Z");
 
   f_close( &SDFile );
   /* Search for connection via USB */
@@ -186,13 +181,13 @@ int main(void)
 		  HAL_PWREx_EnterSHUTDOWNMode(); // Future iterations should have physical control here - skip MCU and cut power from battery with Temp_INT
 	  }
 
-	  if (LSM6DSO_FIFO_RDY == 1 ){
-		  LSM6DSO_FIFO_RDY = 0;
+//	  if (LSM6DSO_FIFO_RDY == 1 ){
+//		  LSM6DSO_FIFO_RDY = 0;
 		  pawprint_readFIFO(&hi2c3, outBUF, &bufferLength, &writeIndex);
-	  }
+//	  }
 
-		  if ( bufferLength >= (33280) ){
-			  pawprint_WriteSD( &SDFile , outBUF, &bufferLength, &readIndex);
+		  if ( bufferLength >= (5120) ){
+			  pawprint_WriteSD(&SDFile , outBUF, &bufferLength);
 		  }
   }
   /* USER CODE END 3 */
