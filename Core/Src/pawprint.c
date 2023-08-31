@@ -120,12 +120,12 @@ void pawprint_init( I2C_HandleTypeDef *i2cHandle ){
 	LSM6DSO_WriteReg(i2cHandle, LSM6DSO_REG_CTRL2_G , &RegDat);
 
 	/**** FIFO set up ****/
-	RegDat = 0x2C;
-	LSM6DSO_WriteReg(i2cHandle, LSM6DSO_REG_FIFO_CTRL1 , &RegDat);// Set Watermark level to 300
-	RegDat = 0x01;
+	RegDat = 0x32;
+	LSM6DSO_WriteReg(i2cHandle, LSM6DSO_REG_FIFO_CTRL1 , &RegDat);// Set Watermark level to 50
+	RegDat = 0x00;
 	LSM6DSO_WriteReg(i2cHandle, LSM6DSO_REG_FIFO_CTRL2 , &RegDat);
-	RegDat = 0x44;
-	LSM6DSO_WriteReg(i2cHandle, LSM6DSO_REG_FIFO_CTRL3 , &RegDat); // Set BDR for XL and Gyro (104Hz both)
+	RegDat = 0x11;
+	LSM6DSO_WriteReg(i2cHandle, LSM6DSO_REG_FIFO_CTRL3 , &RegDat); // Set BDR for XL and Gyro (12.5Hz both)
 	RegDat = 0x56;
 	LSM6DSO_WriteReg(i2cHandle, LSM6DSO_REG_FIFO_CTRL4 , &RegDat);// Set to continuous mode & batch Temp and Timestamp
 	RegDat = 0x00; //RegDat = 0x41;
@@ -190,6 +190,7 @@ void pawprint_readFIFO( I2C_HandleTypeDef *i2cHandle , char *outBUFFER, int *buf
 	st_fifo_conf FIFOconf;
 	uint8_t FIFOstatus[2];
 	uint16_t FIFOdepth = 0;
+	HAL_StatusTypeDef statusOUT = 0x00;
 //	FIFO_out_file FIFO_out;
 
 	FIFOconf.device = ST_FIFO_LSM6DSO;
@@ -198,19 +199,25 @@ void pawprint_readFIFO( I2C_HandleTypeDef *i2cHandle , char *outBUFFER, int *buf
 	FIFOconf.bdr_vsens = 104;
 
 	st_fifo_init(&FIFOconf);
-	st_fifo_raw_slot *raw_slot;
-	st_fifo_out_slot *out_slot;
 	uint16_t out_slot_size = 0;
 
 	/* Confirm watermark has been met LSM6DSO_REG_FIFO_STATUS2 */
-	LSM6DSO_ReadRegs(i2cHandle, LSM6DSO_REG_FIFO_STATUS1, &FIFOstatus[0], 2);
+	LSM6DSO_ReadReg(i2cHandle, LSM6DSO_REG_FIFO_STATUS1, &FIFOstatus[0]); // Getting strange results reading multiple registers here
+	LSM6DSO_ReadReg(i2cHandle, LSM6DSO_REG_FIFO_STATUS2, &FIFOstatus[1]);
 
 	if (((FIFOstatus[1] >> 7)  & 0x01)||((FIFOstatus[1] >> 6)  & 0x01)||((FIFOstatus[1] >> 5)  & 0x01)){ // Check WTM threshold bit, overrun bit and full bit
 		/* Get number of samples in FIFO*/
 		FIFOdepth = ((((uint16_t)FIFOstatus[1] & 0x03) << 8) + (uint16_t)FIFOstatus[0]);
 
-		raw_slot = malloc(FIFOdepth * sizeof(st_fifo_raw_slot));
-		out_slot = malloc(FIFOdepth * 3 * sizeof(st_fifo_out_slot));
+//		st_fifo_raw_slot *raw_slot;
+//		st_fifo_out_slot *out_slot;
+//
+//		raw_slot = malloc(FIFOdepth * sizeof(st_fifo_raw_slot));
+//		out_slot = malloc(FIFOdepth * 3 * sizeof(st_fifo_out_slot));
+
+
+		st_fifo_raw_slot raw_slot[FIFOdepth];
+		st_fifo_out_slot out_slot[FIFOdepth];
 
 		int slots = 0;
 
@@ -218,8 +225,10 @@ void pawprint_readFIFO( I2C_HandleTypeDef *i2cHandle , char *outBUFFER, int *buf
 
 		while(FIFOdepth--) {
 
-			LSM6DSO_ReadRegs(i2cHandle, LSM6DSO_REG_FIFO_DATA_OUT_TAG, &raw_slot[slots].fifo_data_out[0],7 );
-
+			statusOUT = LSM6DSO_ReadRegs(i2cHandle, LSM6DSO_REG_FIFO_DATA_OUT_TAG, &raw_slot[slots].fifo_data_out[0],7 );
+			if(statusOUT != 0x00){
+				slots--;
+			}
 			slots++;
 		}
 
@@ -233,13 +242,14 @@ void pawprint_readFIFO( I2C_HandleTypeDef *i2cHandle , char *outBUFFER, int *buf
 		//uint16_t ext_temp_samples = st_fifo_get_sensor_occurrence(out_slot, out_slot_size, ST_FIFO_EXT_SENSOR1);
 
 
-		//free(raw_slot);
-		//free(out_slot);
+		st_fifo_out_slot acc_slot[acc_samples * sizeof(st_fifo_out_slot)];
+		st_fifo_out_slot gyr_slot[gyr_samples * sizeof(st_fifo_out_slot)];
+		st_fifo_out_slot mag_slot[mag_samples * sizeof(st_fifo_out_slot)];
 
-		st_fifo_out_slot *acc_slot = malloc(acc_samples * sizeof(st_fifo_out_slot));
-		st_fifo_out_slot *gyr_slot = malloc(gyr_samples * sizeof(st_fifo_out_slot));
-		//st_fifo_out_slot *temp_slot = malloc(temp_samples * sizeof(st_fifo_out_slot));
-		st_fifo_out_slot *mag_slot = malloc(mag_samples * sizeof(st_fifo_out_slot));
+//		st_fifo_out_slot *acc_slot = malloc(acc_samples * sizeof(st_fifo_out_slot));
+//		st_fifo_out_slot *gyr_slot = malloc(gyr_samples * sizeof(st_fifo_out_slot));
+//		//st_fifo_out_slot *temp_slot = malloc(temp_samples * sizeof(st_fifo_out_slot));
+//		st_fifo_out_slot *mag_slot = malloc(mag_samples * sizeof(st_fifo_out_slot));
 		//st_fifo_out_slot *ext_temp_slot = malloc(ext_temp_samples * sizeof(st_fifo_out_slot));
 
 		st_fifo_extract_sensor(acc_slot, out_slot, out_slot_size, ST_FIFO_ACCELEROMETER);
@@ -329,7 +339,7 @@ void pawprint_readFIFO( I2C_HandleTypeDef *i2cHandle , char *outBUFFER, int *buf
 }
 
 void pawprint_WriteSD( FIL *SDFile , char *outBUFFER, int *bufferLength){
-	FRESULT writeRESULT;
+
 	int failcount = 0;
 	unsigned int byteCount = 0;
 	int blockSize = 2048;
@@ -339,12 +349,13 @@ void pawprint_WriteSD( FIL *SDFile , char *outBUFFER, int *bufferLength){
 
 	for (int i = 0; i <= (readChunk/blockSize); i++){
 		f_lseek(SDFile, f_size(SDFile));
-		writeRESULT	= f_write(SDFile, &outBUFFER[i*blockSize], blockSize, &byteCount); // Write largest 512 multiple sector
-	if (writeRESULT != FR_OK){
+		f_write(SDFile, &outBUFFER[i*blockSize], blockSize, &byteCount); // Write largest 512 multiple sector
+		if (byteCount != blockSize){
 
-		failcount++;
+			failcount++;
 
-	}
+		}
+
 		f_sync(SDFile);
 		HAL_Delay(10);
 	}
@@ -354,10 +365,6 @@ void pawprint_WriteSD( FIL *SDFile , char *outBUFFER, int *bufferLength){
 	memcpy(outBUFFER, &outBUFFER[readChunk], *bufferLength);  // Move remaining data to index 0
 
 	f_close(SDFile);
-
-	if( readChunk == 1){
-
-	}
 
 }
 

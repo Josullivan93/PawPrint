@@ -15,7 +15,7 @@
 #include "stts751.h"
 #include "st_fifo.h"
 
-#define BUFFER_SIZE 51200
+#define BUFFER_SIZE 25600
 
 /* Simple output struct - strips most features of ST_fifo struct that are not used by PawPrint */
 typedef struct

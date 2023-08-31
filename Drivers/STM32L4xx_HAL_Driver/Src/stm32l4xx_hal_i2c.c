@@ -2596,6 +2596,10 @@ HAL_StatusTypeDef HAL_I2C_Mem_Write(I2C_HandleTypeDef *hi2c, uint16_t DevAddress
     /* Clear STOP Flag */
     __HAL_I2C_CLEAR_FLAG(hi2c, I2C_FLAG_STOPF);
 
+    /* Clear NAK flag */
+
+    __HAL_I2C_CLEAR_FLAG(hi2c, I2C_FLAG_AF);
+
     /* Clear Configuration Register 2 */
     I2C_RESET_CR2(hi2c);
 
