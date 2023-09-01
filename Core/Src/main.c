@@ -59,10 +59,19 @@ DMA_HandleTypeDef hdma_sdmmc1;
 uint8_t LSM6DSO_FIFO_RDY;
 uint8_t OVERTEMP;
 
-int bufferLength = 0;
-int readIndex = 0;
-int writeIndex = 0;
-char outBUF[BUFFER_SIZE];
+// Double Buffer
+static volatile char buffer[2][24576];
+static const int BUFFLEN = sizeof(buffer[0]);
+static const unsigned char EMPTY = 0xff;
+static volatile unsigned char inBUFFER = 0;
+static volatile unsigned char outBUFFER = EMPTY;
+unsigned int byteCount = 0;
+
+// Original Implementation
+//static int bufferLength = 0;
+//static int readIndex = 0;
+static int writeIndex = 0;
+//static char outBUF[BUFFER_SIZE];
 
 FRESULT mountStatus;
 FRESULT volMakeStatus;
@@ -145,12 +154,12 @@ int main(void)
 	  mountStatus = f_mount(&SDFatFS, (TCHAR const*)SDPath, 1);
   }
 
-/*  HAL_Delay(500);
+ HAL_Delay(500);
 
   volMakeStatus = f_mkfs((TCHAR const*)SDPath, FM_ANY, 0, rtext, sizeof(rtext));
   if ( volMakeStatus != FR_OK){
 	  Error_Handler();
-  }*/
+  }
   HAL_Delay(500);
 
   fileCreateStatus = f_open(&SDFile, "Out.csv", FA_CREATE_ALWAYS | FA_WRITE);
@@ -183,12 +192,55 @@ int main(void)
 
 //	  if (LSM6DSO_FIFO_RDY == 1 ){
 //		  LSM6DSO_FIFO_RDY = 0;
-		  pawprint_readFIFO(&hi2c3, outBUF, &bufferLength, &writeIndex);
+//		  pawprint_readFIFO(&hi2c3, outBUF, &bufferLength, &writeIndex);
 //	  }
 
-		  if ( bufferLength >= (5120) ){
-			  pawprint_WriteSD(&SDFile , outBUF, &bufferLength);
+//	  Double Buffer Read Fifo command
+	  if ( LSM6DSO_FIFO_RDY == 1){
+	  	  	LSM6DSO_FIFO_RDY = 0;
+
+	  		pawprint_readFIFO_DB(&hi2c3, &buffer[inBUFFER][writeIndex], &writeIndex);
+
+	  	  	if ( writeIndex >= BUFFLEN/5){
+
+	  	  		outBUFFER = inBUFFER;
+
+	  	  	}
+
+	  	  	inBUFFER = inBUFFER == 0 ? 1 : 0;
+	  	  	writeIndex = 0;
+  }
+//
+//	  Double Buffer Write Loop
+//		  // Check if buffer is available for writing
+		  if(outBUFFER != EMPTY){
+
+			  // Write buffer to file
+			  f_open(&SDFile, "Out.csv", FA_OPEN_APPEND | FA_WRITE);
+			  for (int i = 0; i < BUFFLEN; i++){
+				  f_write(&SDFile, (char *)&buffer[outBUFFER][i], BUFFLEN, &byteCount);
+	  	  	  	  if (byteCount != BUFFLEN){
+
+	  	  	  	  }
+	  	  	  	  if ( i < BUFFLEN-1){
+	  	  	  		  f_sync(&SDFile);
+	  	  	  	  }else if( i == BUFFLEN-1){
+	  	  	  		  f_close(&SDFile);
+
+	  	  	  		  outBUFFER = EMPTY;
+	  	  	  	  }
+
+
+			  }
+
 		  }
+//
+
+
+
+//		  if ( bufferLength >= (5120) ){
+//			  pawprint_WriteSD(&SDFile , outBUF, &bufferLength);
+//		  }
   }
   /* USER CODE END 3 */
 }
