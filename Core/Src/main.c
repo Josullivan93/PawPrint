@@ -59,20 +59,6 @@ DMA_HandleTypeDef hdma_sdmmc1;
 uint8_t LSM6DSO_FIFO_RDY;
 uint8_t OVERTEMP;
 
-// Double Buffer
-static volatile char buffer[2][24576];
-static const int BUFFLEN = sizeof(buffer[0]);
-static const unsigned char EMPTY = 0xff;
-static volatile unsigned char inBUFFER = 0;
-static volatile unsigned char outBUFFER = EMPTY;
-unsigned int byteCount = 0;
-
-// Original Implementation
-//static int bufferLength = 0;
-//static int readIndex = 0;
-static int writeIndex = 0;
-//static char outBUF[BUFFER_SIZE];
-
 FRESULT mountStatus;
 FRESULT volMakeStatus;
 FRESULT fileCreateStatus;
@@ -96,19 +82,19 @@ uint8_t inBuff[64];
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
 
-	// Over Temp gets priority
-	if (GPIO_Pin == TEMP_INT_Pin){
-
-		OVERTEMP = 1;
-
-		// Reset All Tags / Emergency shut down
-
-	}
-	else if (GPIO_Pin == IMU_INT_Pin){
-
-		LSM6DSO_FIFO_RDY = 1;
-
-	}
+//	// Over Temp gets priority
+//	if (GPIO_Pin == TEMP_INT_Pin){
+//
+//		OVERTEMP = 1;
+//
+//		// Reset All Tags / Emergency shut down
+//
+//	}
+//	else if (GPIO_Pin == IMU_INT_Pin){
+//
+//		LSM6DSO_FIFO_RDY = 1;
+//
+//	}
 }
 
 /* USER CODE END 0 */
@@ -167,11 +153,13 @@ int main(void)
 	  Error_Handler();
   }
 
-  f_printf(&SDFile,"TimeStamp,Tag,X,Y,Z");
+  f_printf(&SDFile,"TimeStamp,XL_X,XL_Y,XL_Z,GYR_X,GYR_Y,GYR_Z,MAG_X,MAG_Y,MAG_Z\r\n");
 
   f_close( &SDFile );
+
   /* Search for connection via USB */
   /* Once Received proceed to init and data collection */
+
   // Initialise Sensor
   pawprint_init(&hi2c3);
 
@@ -190,58 +178,10 @@ int main(void)
 		  HAL_PWREx_EnterSHUTDOWNMode(); // Future iterations should have physical control here - skip MCU and cut power from battery with Temp_INT
 	  }
 
-//	  if (LSM6DSO_FIFO_RDY == 1 ){
-//		  LSM6DSO_FIFO_RDY = 0;
-//		  pawprint_readFIFO(&hi2c3, outBUF, &bufferLength, &writeIndex);
-//	  }
 
-//	  Double Buffer Read Fifo command
-	  if ( LSM6DSO_FIFO_RDY == 1){
-	  	  	LSM6DSO_FIFO_RDY = 0;
 
-	  		pawprint_readFIFO_DB(&hi2c3, &buffer[inBUFFER][writeIndex], &writeIndex);
-
-	  	  	if ( writeIndex >= BUFFLEN/5){
-
-	  	  		outBUFFER = inBUFFER;
-
-	  	  	}
-
-	  	  	inBUFFER = inBUFFER == 0 ? 1 : 0;
-	  	  	writeIndex = 0;
   }
-//
-//	  Double Buffer Write Loop
-//		  // Check if buffer is available for writing
-		  if(outBUFFER != EMPTY){
 
-			  // Write buffer to file
-			  f_open(&SDFile, "Out.csv", FA_OPEN_APPEND | FA_WRITE);
-			  for (int i = 0; i < BUFFLEN; i++){
-				  f_write(&SDFile, (char *)&buffer[outBUFFER][i], BUFFLEN, &byteCount);
-	  	  	  	  if (byteCount != BUFFLEN){
-
-	  	  	  	  }
-	  	  	  	  if ( i < BUFFLEN-1){
-	  	  	  		  f_sync(&SDFile);
-	  	  	  	  }else if( i == BUFFLEN-1){
-	  	  	  		  f_close(&SDFile);
-
-	  	  	  		  outBUFFER = EMPTY;
-	  	  	  	  }
-
-
-			  }
-
-		  }
-//
-
-
-
-//		  if ( bufferLength >= (5120) ){
-//			  pawprint_WriteSD(&SDFile , outBUF, &bufferLength);
-//		  }
-  }
   /* USER CODE END 3 */
 }
 

@@ -17,15 +17,6 @@
 
 /* Private Variables */
 
-#define SLOT_NUMBER 512
-
-//static FIFO_out_file FIFO_out[512];
-static st_fifo_raw_slot raw_slot[SLOT_NUMBER];
-static st_fifo_out_slot out_slot[SLOT_NUMBER];
-static st_fifo_out_slot acc_slot[SLOT_NUMBER];
-static st_fifo_out_slot gyr_slot[SLOT_NUMBER];
-static st_fifo_out_slot mag_slot[SLOT_NUMBER];
-
 /* Initialisation */
 
 void pawprint_init( I2C_HandleTypeDef *i2cHandle ){
@@ -184,267 +175,6 @@ void pawprint_init( I2C_HandleTypeDef *i2cHandle ){
 
 }
 
-// Custom FIFO fetch function for use with double buffer
-void pawprint_readFIFO_DB(I2C_HandleTypeDef *i2cHandle, char *buffer, int *writeIndex) {
-
-
-	/* Init utility for FIFO decompression */
-	st_fifo_conf conf;
-	  conf.device = ST_FIFO_LSM6DSO;
-	  conf.bdr_xl = 13.0f;
-	  conf.bdr_gy = 13.0f;
-	  conf.bdr_vsens = 13.0f;
-
-	  st_fifo_init(&conf);
-
-	// Variables
-	HAL_StatusTypeDef statusOut = 0x00; // Success/Fail for each read/write
-	uint16_t out_slot_size;
-	uint16_t slots = 0;
-	uint8_t FIFOstatus[2];
-	uint16_t FIFOdepth = 0;
-    uint16_t acc_samples;
-    uint16_t gyr_samples;
-    uint16_t mag_samples;
-    int outLength = 0;
-    int count = 0;
-
-	// Read Watermark - BDU enabled therefore all bits MUST be read in sequence MSB to LSB
-	statusOut = LSM6DSO_ReadRegs(i2cHandle, LSM6DSO_REG_FIFO_STATUS1, &FIFOstatus[0],2);
-
-	if( ((FIFOstatus[1] >> 7) & 0x01) || ((FIFOstatus[1] >> 6) & 0x01) || ((FIFOstatus[1] >> 5) & 0x01) ){
-
-		statusOut = FIFOdepth = (((uint16_t)FIFOstatus[1] & 0x03) << 8 ) + (uint16_t)FIFOstatus[0];
-
-		while( FIFOdepth-- ){
-
-			statusOut = LSM6DSO_ReadReg(i2cHandle, LSM6DSO_REG_FIFO_DATA_OUT_TAG, (uint8_t *)&raw_slot[slots].fifo_data_out[0]);
-
-			LSM6DSO_ReadRegs(i2cHandle, LSM6DSO_REG_FIFO_DATA_OUT_X_L, &raw_slot[slots].fifo_data_out[1],6);
-
-			slots++;
-
-			}
-
-		/* Uncompress FIFO samples and filter based on sensor type */
-		      st_fifo_decode(out_slot, raw_slot, &out_slot_size, slots);
-		      st_fifo_sort(out_slot, out_slot_size);
-		      acc_samples = st_fifo_get_sensor_occurrence(out_slot,
-		                                                  out_slot_size,
-		                                                  ST_FIFO_ACCELEROMETER);
-		      gyr_samples = st_fifo_get_sensor_occurrence(out_slot,
-		                                                  out_slot_size,
-		                                                  ST_FIFO_GYROSCOPE);
-		      mag_samples = st_fifo_get_sensor_occurrence(out_slot,
-		      		                                      out_slot_size,
-														  ST_FIFO_EXT_SENSOR0);
-
-
-		      /* Count how many acc and gyro samples */
-		      st_fifo_extract_sensor(acc_slot, out_slot, out_slot_size,
-		                                   ST_FIFO_ACCELEROMETER);
-		      st_fifo_extract_sensor(gyr_slot, out_slot, out_slot_size,
-		                                   ST_FIFO_GYROSCOPE);
-		      st_fifo_extract_sensor(mag_slot, out_slot, out_slot_size,
-		    		  	  	  	  	  	   ST_FIFO_EXT_SENSOR0);
-
-
-		      for (int i = 0; i < acc_samples; i++) {
-		        outLength = snprintf(&buffer[count],sizeof(&buffer)-*writeIndex ,"%lu,%d,%.3f,%.3f,%.3f\r\n",
-		        	    		    			acc_slot[i].timestamp,
-		        	    						acc_slot[i].sensor_tag,
-		        								lsm6dso_from_fs2_to_mg(acc_slot[i].sensor_data.x),
-		        								lsm6dso_from_fs2_to_mg(acc_slot[i].sensor_data.y),
-		        								lsm6dso_from_fs2_to_mg(acc_slot[i].sensor_data.z));
-
-		        count += outLength;
-		      }
-
-		      for (int i = 0; i < gyr_samples; i++) {
-		      		        outLength = snprintf(&buffer[count],sizeof(&buffer)-*writeIndex ,"%lu,%d,%.3f,%.3f,%.3f\r\n",
-		      		        	    		    			gyr_slot[i].timestamp,
-		      		        	    						gyr_slot[i].sensor_tag,
-															lsm6dso_from_fs125_to_mdps(gyr_slot[i].sensor_data.x),
-															lsm6dso_from_fs125_to_mdps(gyr_slot[i].sensor_data.y),
-															lsm6dso_from_fs125_to_mdps(gyr_slot[i].sensor_data.z));
-
-		      		        count += outLength;
-		      		      }
-
-		      for (int i = 0; i < mag_samples; i++) {
-		      		        outLength = snprintf(&buffer[count],sizeof(&buffer)-*writeIndex ,"%lu,%d,%.3f,%.3f,%.3f\r\n",
-		      		        	    		    			mag_slot[i].timestamp,
-		      		        	    						mag_slot[i].sensor_tag,
-		      		        								lis2mdl_from_lsb_to_mgauss(mag_slot[i].sensor_data.x),
-		      		        								lis2mdl_from_lsb_to_mgauss(mag_slot[i].sensor_data.y),
-		      		        								lis2mdl_from_lsb_to_mgauss(mag_slot[i].sensor_data.z));
-
-		      		        count += outLength;
-		      		      }
-
-		      slots = 0;
-		      *writeIndex += count;
-
-		}
-
-}
-
-/* FIFO read and decode - uses st_fifo repo from STMicro git */
-
-void pawprint_readFIFO( I2C_HandleTypeDef *i2cHandle , char *outBUFFER, int *bufferLength, int *writeIndex){
-
-	st_fifo_conf FIFOconf;
-	uint8_t FIFOstatus[2];
-	uint16_t FIFOdepth = 0;
-	HAL_StatusTypeDef statusOUT = 0x00;
-//	FIFO_out_file FIFO_out;
-
-	FIFOconf.device = ST_FIFO_LSM6DSO;
-	FIFOconf.bdr_xl = 12.5; // 104 - as batching timestamp can set to 0
-	FIFOconf.bdr_gy = 12.5;
-	FIFOconf.bdr_vsens = 12.5;
-
-	st_fifo_init(&FIFOconf);
-	uint16_t out_slot_size = 0;
-
-	/* Confirm watermark has been met LSM6DSO_REG_FIFO_STATUS2 */
-	LSM6DSO_ReadReg(i2cHandle, LSM6DSO_REG_FIFO_STATUS1, &FIFOstatus[0]); // Getting strange results reading multiple registers here
-	LSM6DSO_ReadReg(i2cHandle, LSM6DSO_REG_FIFO_STATUS2, &FIFOstatus[1]);
-
-	if (((FIFOstatus[1] >> 7)  & 0x01)||((FIFOstatus[1] >> 6)  & 0x01)||((FIFOstatus[1] >> 5)  & 0x01)){ // Check WTM threshold bit, overrun bit and full bit
-		/* Get number of samples in FIFO*/
-		FIFOdepth = ((((uint16_t)FIFOstatus[1] & 0x03) << 8) + (uint16_t)FIFOstatus[0]);
-
-//		st_fifo_raw_slot *raw_slot;
-//		st_fifo_out_slot *out_slot;
-//
-//		raw_slot = malloc(FIFOdepth * sizeof(st_fifo_raw_slot));
-//		out_slot = malloc(FIFOdepth * 3 * sizeof(st_fifo_out_slot));
-
-
-		st_fifo_raw_slot raw_slot[FIFOdepth];
-		st_fifo_out_slot out_slot[FIFOdepth];
-
-		int slots = 0;
-
-		int streamSize = FIFOdepth;
-
-		while(FIFOdepth--) {
-
-			statusOUT = LSM6DSO_ReadRegs(i2cHandle, LSM6DSO_REG_FIFO_DATA_OUT_TAG, &raw_slot[slots].fifo_data_out[0],7 );
-			if(statusOUT != 0x00){
-				slots--;
-			}
-			slots++;
-		}
-
-		st_fifo_decode(out_slot, raw_slot, &out_slot_size, streamSize);
-		st_fifo_sort(out_slot, out_slot_size);
-
-		uint16_t acc_samples = st_fifo_get_sensor_occurrence(out_slot, out_slot_size, ST_FIFO_ACCELEROMETER);
-		uint16_t gyr_samples = st_fifo_get_sensor_occurrence(out_slot, out_slot_size, ST_FIFO_GYROSCOPE);
-		//uint16_t temp_samples = st_fifo_get_sensor_occurrence(out_slot, out_slot_size, ST_FIFO_TEMPERATURE);
-		uint16_t mag_samples = st_fifo_get_sensor_occurrence(out_slot, out_slot_size, ST_FIFO_EXT_SENSOR0);
-		//uint16_t ext_temp_samples = st_fifo_get_sensor_occurrence(out_slot, out_slot_size, ST_FIFO_EXT_SENSOR1);
-
-
-		st_fifo_out_slot acc_slot[acc_samples * sizeof(st_fifo_out_slot)];
-		st_fifo_out_slot gyr_slot[gyr_samples * sizeof(st_fifo_out_slot)];
-		st_fifo_out_slot mag_slot[mag_samples * sizeof(st_fifo_out_slot)];
-
-//		st_fifo_out_slot *acc_slot = malloc(acc_samples * sizeof(st_fifo_out_slot));
-//		st_fifo_out_slot *gyr_slot = malloc(gyr_samples * sizeof(st_fifo_out_slot));
-//		//st_fifo_out_slot *temp_slot = malloc(temp_samples * sizeof(st_fifo_out_slot));
-//		st_fifo_out_slot *mag_slot = malloc(mag_samples * sizeof(st_fifo_out_slot));
-		//st_fifo_out_slot *ext_temp_slot = malloc(ext_temp_samples * sizeof(st_fifo_out_slot));
-
-		st_fifo_extract_sensor(acc_slot, out_slot, out_slot_size, ST_FIFO_ACCELEROMETER);
-		st_fifo_extract_sensor(gyr_slot, out_slot, out_slot_size, ST_FIFO_GYROSCOPE);
-		//st_fifo_extract_sensor(temp_slot, out_slot, out_slot_size, ST_FIFO_TEMPERATURE);
-		st_fifo_extract_sensor(mag_slot, out_slot, out_slot_size, ST_FIFO_EXT_SENSOR0);
-		//st_fifo_extract_sensor(ext_temp_slot, out_slot, out_slot_size, ST_FIFO_EXT_SENSOR1);
-
-//
-//		for (int i = 0; i < acc_samples; i++){
-//			FIFO_out[row_count].timestamp = acc_slot[i].timestamp;
-//			FIFO_out[row_count].sensor_tag = acc_slot[i].sensor_tag;
-//			FIFO_out[row_count].sensor_data.x = lsm6dso_from_fs2_to_mg(acc_slot[i].sensor_data.x);
-//			FIFO_out[row_count].sensor_data.y = lsm6dso_from_fs2_to_mg(acc_slot[i].sensor_data.y);
-//			FIFO_out[row_count].sensor_data.z = lsm6dso_from_fs2_to_mg(acc_slot[i].sensor_data.z);
-//			FIFO_out[row_count].sensor_data.temp = 0;
-//		}
-//
-//	    for (int i = 0; i < gyr_samples; i++) {
-//	    	FIFO_out[row_count].timestamp = gyr_slot[i].timestamp;
-//	    	FIFO_out[row_count].sensor_tag = gyr_slot[i].sensor_tag;
-//	    	FIFO_out[row_count].sensor_data.x = lsm6dso_from_fs125_to_mdps(gyr_slot[i].sensor_data.x);
-//	    	FIFO_out[row_count].sensor_data.y = lsm6dso_from_fs125_to_mdps(gyr_slot[i].sensor_data.y);
-//	    	FIFO_out[row_count].sensor_data.z = lsm6dso_from_fs125_to_mdps(gyr_slot[i].sensor_data.z);
-//	    	FIFO_out[row_count].sensor_data.temp = 0;
-//	    }
-//
-//	    for (int i = 0; i < mag_samples; i++) {
-//	    	FIFO_out[row_count].timestamp = mag_slot[i].timestamp;
-//	    	FIFO_out[row_count].sensor_tag = mag_slot[i].sensor_tag;
-//	    	FIFO_out[row_count].sensor_data.x = lis2mdl_from_lsb_to_mgauss(mag_slot[i].sensor_data.x);
-//	    	FIFO_out[row_count].sensor_data.y = lis2mdl_from_lsb_to_mgauss(mag_slot[i].sensor_data.y);
-//	    	FIFO_out[row_count].sensor_data.z = lis2mdl_from_lsb_to_mgauss(mag_slot[i].sensor_data.z);
-//	    	FIFO_out[row_count].sensor_data.temp = 0;
-//	    }
-
-
-		if (*bufferLength != 0 ){
-			*writeIndex = *bufferLength;
-			snprintf(&outBUFFER[*writeIndex],(BUFFER_SIZE-(*writeIndex)) ,"\nB,R,E,A,K\n");
-		}
-
-		// Convert to real units & add to formatted strings
-	    for (int i = 0; i < acc_samples; i++) {
-	    	uint8_t outLength = 0;
-
-	    	outLength = snprintf(&outBUFFER[*writeIndex],(BUFFER_SIZE-(*writeIndex)) ,"\n%lu,%u,%.3f,%.3f,%.3f\n",
-	    		    			acc_slot[i].timestamp,
-	    						acc_slot[i].sensor_tag,
-								lsm6dso_from_fs2_to_mg(acc_slot[i].sensor_data.x),
-								lsm6dso_from_fs2_to_mg(acc_slot[i].sensor_data.y),
-								lsm6dso_from_fs2_to_mg(acc_slot[i].sensor_data.z));
-
-	    	*bufferLength += outLength;
-	    	*writeIndex += outLength;
-	    }
-
-	    for (int i = 0; i < gyr_samples; i++) {
-	    	uint8_t outLength = 0;
-
-	    	outLength = snprintf(&outBUFFER[*writeIndex],(BUFFER_SIZE-*writeIndex) , "\n%lu,%u,%.3f,%.3f,%.3f\n",
-	    		    		    			gyr_slot[i].timestamp,
-	    		    						gyr_slot[i].sensor_tag,
-											lsm6dso_from_fs125_to_mdps(gyr_slot[i].sensor_data.x),
-											lsm6dso_from_fs125_to_mdps(gyr_slot[i].sensor_data.y),
-											lsm6dso_from_fs125_to_mdps(gyr_slot[i].sensor_data.z));
-	    	*bufferLength += outLength;
-	    	*writeIndex += outLength;
-	    }
-
-	    for (int i = 0; i < mag_samples; i++) {
-	    	uint8_t outLength = 0;
-
-	    	outLength = snprintf(&outBUFFER[*writeIndex],(BUFFER_SIZE-*writeIndex) , "\n%lu,%u,%.3f,%.3f,%.3f\n",
-	    		    		    			mag_slot[i].timestamp,
-	    		    						mag_slot[i].sensor_tag,
-											lis2mdl_from_lsb_to_mgauss(mag_slot[i].sensor_data.x),
-											lis2mdl_from_lsb_to_mgauss(mag_slot[i].sensor_data.y),
-											lis2mdl_from_lsb_to_mgauss(mag_slot[i].sensor_data.z)
-											);
-
-	    	*bufferLength += outLength;
-	    	*writeIndex += outLength;
-
-	    }
-	}
-
-}
-
 void pawprint_WriteSD( FIL *SDFile , char *outBUFFER, int *bufferLength){
 
 	int failcount = 0;
@@ -475,31 +205,148 @@ void pawprint_WriteSD( FIL *SDFile , char *outBUFFER, int *bufferLength){
 
 }
 
-//
-//	for (int i = 0; i <= *bufferLength/clusterSize; i++) {
-//
-//		int readIndex_end = *readIndex + (clusterSize-1);
-//		*bufferLength -= ((readIndex_end - *readIndex )+ 1);
-//		if (readIndex_end > BUFFER_SIZE){
-//
-//			readIndex_end -= BUFFER_SIZE;
-//
-//			f_write(SDFile, &outBUFFER[*readIndex], ((BUFFER_SIZE - *readIndex)+1), &byteCount);
-//			f_write(SDFile, &outBUFFER, readIndex_end, &byteCount);
-//
-//		}
-//		else {
-//			f_write(SDFile, &outBUFFER[*readIndex], clusterSize, &byteCount);
-//		}
-//		*readIndex = (readIndex_end+1);
-//		if (*readIndex > BUFFER_SIZE){
-//			*readIndex = 0;
-//		}
-//	}
-//
-//	f_close( SDFile );
-//
-//}
+// Custom FIFO read function with single additional buffer - Trying to address missing data issue
+// Will attempt to align on single line per time stamp
+// SD write file incorporated to ensure  buffer is unloaded ASAP and does not overrun due to FIFO depth
+// Perhaps add line to get maximum line size and check that if added to buffer would not overflow
+
+void pawprint_readFIFO_SD (I2C_HandleTypeDef *i2cHandle, char *buffer, int *writeIndex, int *maxoutLength, int *tag_counter, sensor_out *FIFOout) {
+
+	// Things needed to import with function
+	// Char Buffer of size 40KB
+	// Buffer write index
+	// Previous max line size
+	// Time at start of timer in UNIX to microsecond - reset by writing AAh to TIMESTAMP2 register when grabbing RTC time to sync
+	// BDR value
+	// Previous Timestamp
+	// Previous Tag count
+
+	HAL_StatusTypeDef statusOut = 0x00; // Success/Fail for each read/write
+	uint8_t FIFOstatus[2];
+	uint16_t FIFOdepth = 0;
+	int outLength = 0;
+
+	// Set Sensor BDR - Move to external input
+	float bdr_xl = 12.5f;
+	float bdr_gyr = 12.5f;
+	float bdr_max = fmaxf(bdr_xl, bdr_gyr);
+
+	// Period length converted to LSB - 1lsb = 25us
+	float batch_period = (1000000*(1/bdr_max))/25;
+
+	// Read timestamp_endcount bit to check for timestamp overrun
+		// Enable a bit that forces a check for timestamp < old timestamp? Or other overrun check?
+
+	// Read watermark flag and if/else
+	statusOut = LSM6DSO_ReadRegs(i2cHandle, LSM6DSO_REG_FIFO_STATUS1, &FIFOstatus[0],2);
+
+	if( ((FIFOstatus[1] >> 7) & 0x01) || ((FIFOstatus[1] >> 6) & 0x01) || ((FIFOstatus[1] >> 5) & 0x01) ){
+
+		// if full that flips binary bit indicating data should be cleaned until next timestamp
+		//if ((FIFOstatus[1] >> 6) & 0x01) {
+		//	overrunStatus = 1;
+		//}
+
+		// get fifo depth
+		FIFOdepth = (((uint16_t)FIFOstatus[1] & 0x03) << 8 ) + (uint16_t)FIFOstatus[0];
+
+		while(FIFOdepth--){
+
+			uint8_t FIFOdat[7] = {0};
+
+			statusOut = LSM6DSO_ReadRegs(i2cHandle, LSM6DSO_REG_FIFO_DATA_OUT_TAG, &FIFOdat[0], 7);
+
+			// Get tag type & counter
+			uint8_t tag = (FIFOdat[0] & 0xF8) >> 0x03;
+			uint8_t new_tag_counter = (FIFOdat[0] & 0x06) >> 0x01;
+
+			// Is tag_counter same as previous?
+			if ((new_tag_counter != tag_counter)){
+
+					// send old data to buffer with snprintf
+					outLength = snprintf(&buffer[*writeIndex],sizeof(&buffer)-*writeIndex ,"%lu,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f\r\n",
+							        	    		    			FIFOout->timestamp * 25 / 1000000,
+							        								lsm6dso_from_fs2_to_mg(FIFOout->XLdat.x),
+							        								lsm6dso_from_fs2_to_mg(FIFOout->XLdat.y),
+							        								lsm6dso_from_fs2_to_mg(FIFOout->XLdat.z),
+
+									        						lsm6dso_from_fs125_to_mdps(FIFOout->GYRdat.x),
+																	lsm6dso_from_fs125_to_mdps(FIFOout->GYRdat.y),
+																	lsm6dso_from_fs125_to_mdps(FIFOout->GYRdat.z),
+
+																	lis2mdl_from_lsb_to_mgauss(FIFOout->MAGdat.x),
+																	lis2mdl_from_lsb_to_mgauss(FIFOout->MAGdat.y),
+																	lis2mdl_from_lsb_to_mgauss(FIFOout->MAGdat.z));
+
+					// clear data
+					*FIFOout = (sensor_out) {0};
+
+					// update max line length - for debug and not used?
+					if (outLength > *maxoutLength){
+						*maxoutLength = outLength;
+					}
+					// update buffer write index
+					*writeIndex += outLength;
+
+				uint8_t diff_tag_counter = 0;
+
+				if(new_tag_counter < *tag_counter)
+				{
+
+					diff_tag_counter = new_tag_counter + 4u - *tag_counter;
+
+				}
+				else
+				{
+					diff_tag_counter = new_tag_counter - *tag_counter;
+				}
+
+				*tag_counter = new_tag_counter;
+
+				// Update Timestamp based on counter change - works reliably only where <4 batch periods have passed
+				//uint32_t old_timestamp = FIFOout.timestamp;
+				FIFOout->timestamp += (batch_period * diff_tag_counter);
+
+				// Need to account for timestamp overrun here as well in future - for now ignored as limit is 1.2 days
+				// Potentially: if Timestamp > (Maxtime * (timer_reset_count+1)) then timer_reset_count++
+				// Timestamp reset bit exists but do not see reason to use?
+
+			}
+
+			// switch to ID sensor from tag
+			switch (tag)
+			{
+				case 0x01: // Gyroscope
+					FIFOout->GYRdat.x = (FIFOdat[2] << 8) | FIFOdat[1] ;
+					FIFOout->GYRdat.y = (FIFOdat[4] << 8) | FIFOdat[3];
+					FIFOout->GYRdat.z = (FIFOdat[6] << 8) | FIFOdat[5];
+					break;
+
+				case 0x02: // Accelerometer
+					FIFOout->XLdat.x = (FIFOdat[2] << 8) | FIFOdat[1];
+					FIFOout->XLdat.y = (FIFOdat[4] << 8) | FIFOdat[3];
+					FIFOout->XLdat.z = (FIFOdat[6] << 8) | FIFOdat[5];
+					break;
+
+				case 0x04: // Timestamp
+					FIFOout->timestamp = (FIFOdat[4] << 24) | (FIFOdat[3] << 16) | (FIFOdat[2] << 8) | FIFOdat[1];
+					break;
+
+				case 0x0E: // Magnetometer
+					FIFOout->MAGdat.x = (FIFOdat[2] << 8) | FIFOdat[1];
+					FIFOout->MAGdat.y = (FIFOdat[4] << 8) | FIFOdat[3];
+					FIFOout->MAGdat.z = (FIFOdat[6] << 8) | FIFOdat[5];
+					break;
+
+			}
+			// count each loop before data reset and include in struct for debugging - can then check if greater than number of sensors
+
+		}
+
+	}
+
+}
+
 
 float_t lsm6dso_from_fs2_to_mg(int16_t lsb)
 {
