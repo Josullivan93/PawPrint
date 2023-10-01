@@ -210,7 +210,7 @@ void pawprint_WriteSD( FIL *SDFile , char *outBUFFER, int *bufferLength){
 // SD write file incorporated to ensure  buffer is unloaded ASAP and does not overrun due to FIFO depth
 // Perhaps add line to get maximum line size and check that if added to buffer would not overflow
 
-void pawprint_readFIFO_SD (I2C_HandleTypeDef *i2cHandle, char *buffer, int *writeIndex, int *maxoutLength, int *tag_counter, sensor_out *FIFOout) {
+void pawprint_readFIFO (I2C_HandleTypeDef *i2cHandle, char *buffer, int *writeIndex, int *maxoutLength, int *tag_counter, sensor_out *FIFOout) {
 
 	// Things needed to import with function
 	// Char Buffer of size 40KB
@@ -261,7 +261,7 @@ void pawprint_readFIFO_SD (I2C_HandleTypeDef *i2cHandle, char *buffer, int *writ
 			uint8_t new_tag_counter = (FIFOdat[0] & 0x06) >> 0x01;
 
 			// Is tag_counter same as previous?
-			if ((new_tag_counter != tag_counter)){
+			if ((new_tag_counter != *tag_counter)){
 
 					// send old data to buffer with snprintf
 					outLength = snprintf(&buffer[*writeIndex],sizeof(&buffer)-*writeIndex ,"%lu,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f\r\n",
@@ -278,8 +278,17 @@ void pawprint_readFIFO_SD (I2C_HandleTypeDef *i2cHandle, char *buffer, int *writ
 																	lis2mdl_from_lsb_to_mgauss(FIFOout->MAGdat.y),
 																	lis2mdl_from_lsb_to_mgauss(FIFOout->MAGdat.z));
 
-					// clear data
-					*FIFOout = (sensor_out) {0};
+					// clear data - Can I assign this in one? As not changing TimeStamp couldnt work it out
+					FIFOout->XLdat.x = 0 ;
+					FIFOout->XLdat.y = 0 ;
+					FIFOout->XLdat.z = 0 ;
+					FIFOout->GYRdat.x = 0 ;
+					FIFOout->GYRdat.y = 0 ;
+					FIFOout->GYRdat.z = 0 ;
+					FIFOout->MAGdat.x = 0 ;
+					FIFOout->GYRdat.y = 0 ;
+					FIFOout->GYRdat.z = 0 ;
+					//*FIFOout = (sensor_out) {0};
 
 					// update max line length - for debug and not used?
 					if (outLength > *maxoutLength){

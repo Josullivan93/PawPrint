@@ -59,6 +59,15 @@ DMA_HandleTypeDef hdma_sdmmc1;
 uint8_t LSM6DSO_FIFO_RDY;
 uint8_t OVERTEMP;
 
+static volatile char buffer[40000];
+static char tempBuff[8000];
+static int writeIndex = 0;
+static int maxoutLength = 0;
+static int tag_counter = 0;
+static sensor_out FIFOout = {0};
+unsigned int byteCount = 0;
+unsigned int writeNum = 0;
+
 FRESULT mountStatus;
 FRESULT volMakeStatus;
 FRESULT fileCreateStatus;
@@ -133,6 +142,7 @@ int main(void)
   MX_USB_DEVICE_Init();
   MX_RTC_Init();
   MX_FATFS_Init();
+
   /* USER CODE BEGIN 2 */
   int attempts = 0;
   mountStatus = f_mount(&SDFatFS, (TCHAR const*)SDPath, 1);
@@ -155,7 +165,7 @@ int main(void)
 
   f_printf(&SDFile,"TimeStamp,XL_X,XL_Y,XL_Z,GYR_X,GYR_Y,GYR_Z,MAG_X,MAG_Y,MAG_Z\r\n");
 
-  f_close( &SDFile );
+  f_sync( &SDFile );
 
   /* Search for connection via USB */
   /* Once Received proceed to init and data collection */
@@ -178,6 +188,32 @@ int main(void)
 		  HAL_PWREx_EnterSHUTDOWNMode(); // Future iterations should have physical control here - skip MCU and cut power from battery with Temp_INT
 	  }
 
+	  pawprint_readFIFO(&hi2c3, (char *) buffer, &writeIndex, &maxoutLength, &tag_counter, &FIFOout); // Combine some features input here into structs for simplicity
+
+	  // Check buffer fill
+	  if (writeIndex >= 32000){
+
+		  f_write(&SDFile, (char *)&buffer, 32000, &byteCount);
+
+		  // Copy end of buffer to beginning and clear
+		  strlcpy(tempBuff,(char *) &buffer[32000], 8000);
+		  memset((char *) &buffer[0], 0, sizeof(buffer));
+		  strlcpy((char *) &buffer, tempBuff, 40000);
+		  memset(&tempBuff[0], 0, sizeof(tempBuff));
+
+		  // Set writeIndex to remainder length
+		  writeIndex -= byteCount;
+		  writeNum++;
+
+		  // fsync every 16MB to ensure SD buffer is being written
+		  if( writeNum >= 500){
+			  f_sync(&SDFile);
+			  writeNum = 0;
+		  }
+
+		  // fclose needs adding when time functionality added
+
+	  }
 
 
   }
