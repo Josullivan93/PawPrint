@@ -118,11 +118,11 @@ void pawprint_init( I2C_HandleTypeDef *i2cHandle ){
 	LSM6DSO_WriteReg(i2cHandle, LSM6DSO_REG_FIFO_CTRL1 , &RegDat);// Set Watermark level to 50
 	RegDat = 0x00;
 	LSM6DSO_WriteReg(i2cHandle, LSM6DSO_REG_FIFO_CTRL2 , &RegDat);
-	RegDat = 0x11;
-	LSM6DSO_WriteReg(i2cHandle, LSM6DSO_REG_FIFO_CTRL3 , &RegDat); // Set BDR for XL and Gyro (12.5Hz both)
-	RegDat = 0x46;
+	RegDat = 0x44;
+	LSM6DSO_WriteReg(i2cHandle, LSM6DSO_REG_FIFO_CTRL3 , &RegDat); // Set BDR for XL and Gyro (104Hz both)
+	RegDat = 0x41;
 	LSM6DSO_WriteReg(i2cHandle, LSM6DSO_REG_FIFO_CTRL4 , &RegDat);//41: FIFO mode, bqtch Timestamp, no temp   56: Set to continuous mode & batch Temp and Timestamp
-	RegDat = 0x00; //RegDat = 0x41;
+	RegDat = 0x00;
 	LSM6DSO_WriteReg(i2cHandle, LSM6DSO_REG_TAP_CFG0 , &RegDat); // Latch interrupt & clear on read
 	RegDat = 0x38;
 	LSM6DSO_WriteReg(i2cHandle, LSM6DSO_REG_INT1_CTRL , &RegDat); // FIFO int on INT1
@@ -146,7 +146,7 @@ void pawprint_init( I2C_HandleTypeDef *i2cHandle ){
 //	LSM6DSO_WriteReg(i2cHandle, LSM6DSO_REG_SLV1_SUBADD, &RegDat);// Set start register for data output
 //	RegDat = 0x0B;
 //	LSM6DSO_WriteReg(i2cHandle, LSM6DSO_REG_SLV1_CONFIG, &RegDat);// Set bytes to read - status between L and H registers so need to read 3
-//	RegDat = 0x00;
+	RegDat = 0x00;
 	LSM6DSO_WriteReg(i2cHandle, LSM6DSO_REG_FUNC_CFG_ACCESS, &RegDat);// Disable SHUB access
 
 	/* Configure Xl and Gyro */
@@ -160,9 +160,9 @@ void pawprint_init( I2C_HandleTypeDef *i2cHandle ){
 	LSM6DSO_WriteReg(i2cHandle, LSM6DSO_REG_CTRL7_G, &RegDat);// Gyro High performance disabled
 	RegDat = 0x20;
 	LSM6DSO_WriteReg(i2cHandle, LSM6DSO_REG_CTRL10_C, &RegDat);// enable timestamps
-	RegDat = 0x10;
+	RegDat = 0x40;
 	LSM6DSO_WriteReg(i2cHandle, LSM6DSO_REG_CTRL1_XL, &RegDat);//Set acc scale and sample rate  - ctrl 1 xl
-	RegDat = 0x10;
+	RegDat = 0x40;
 	LSM6DSO_WriteReg(i2cHandle, LSM6DSO_REG_CTRL2_G, &RegDat);// Gyro scale and sample rate - ctrl 2 g
 
 	/* Enable I2C Master to begin Data collection */
@@ -227,8 +227,8 @@ void pawprint_readFIFO (I2C_HandleTypeDef *i2cHandle, char *buffer, int *writeIn
 	int outLength = 0;
 
 	// Set Sensor BDR - Move to external input
-	float bdr_xl = 12.5f;
-	float bdr_gyr = 12.5f;
+	float bdr_xl = 104.0f;
+	float bdr_gyr = 104.0f;
 	float bdr_max = fmaxf(bdr_xl, bdr_gyr);
 
 	// Period length converted to LSB - 1lsb = 25us
@@ -238,7 +238,7 @@ void pawprint_readFIFO (I2C_HandleTypeDef *i2cHandle, char *buffer, int *writeIn
 		// Enable a bit that forces a check for timestamp < old timestamp? Or other overrun check?
 
 	// Read watermark flag and if/else
-	statusOut = LSM6DSO_ReadRegs(i2cHandle, LSM6DSO_REG_FIFO_STATUS1, &FIFOstatus[0],2);
+	LSM6DSO_ReadRegs(i2cHandle, LSM6DSO_REG_FIFO_STATUS1, FIFOstatus,2);
 
 	if( ((FIFOstatus[1] >> 7) & 0x01) || ((FIFOstatus[1] >> 6) & 0x01) || ((FIFOstatus[1] >> 5) & 0x01) ){
 
@@ -264,8 +264,8 @@ void pawprint_readFIFO (I2C_HandleTypeDef *i2cHandle, char *buffer, int *writeIn
 			if ((new_tag_counter != *tag_counter)){
 
 					// send old data to buffer with snprintf
-					outLength = snprintf(&buffer[*writeIndex],sizeof(&buffer)-*writeIndex ,"%lu,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f\r\n",
-							        	    		    			FIFOout->timestamp * 25 / 1000000,
+					outLength = snprintf(&buffer[*writeIndex],40000-*writeIndex ,"%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f\n",
+																	(((float_t)FIFOout->timestamp) * 25.0f / 1000000.0f),
 							        								lsm6dso_from_fs2_to_mg(FIFOout->XLdat.x),
 							        								lsm6dso_from_fs2_to_mg(FIFOout->XLdat.y),
 							        								lsm6dso_from_fs2_to_mg(FIFOout->XLdat.z),
@@ -277,6 +277,11 @@ void pawprint_readFIFO (I2C_HandleTypeDef *i2cHandle, char *buffer, int *writeIn
 																	lis2mdl_from_lsb_to_mgauss(FIFOout->MAGdat.x),
 																	lis2mdl_from_lsb_to_mgauss(FIFOout->MAGdat.y),
 																	lis2mdl_from_lsb_to_mgauss(FIFOout->MAGdat.z));
+
+					if (outLength < 0){
+						// Could be the reason for errors in output? Write if error occurs for inspection
+						outLength += snprintf(&buffer[*writeIndex],40000-*writeIndex ,"~,~,E,R,R,O,R,!,~,~\n");
+					}
 
 					// clear data - Can I assign this in one? As not changing TimeStamp couldnt work it out
 					FIFOout->XLdat.x = 0 ;

@@ -163,7 +163,7 @@ int main(void)
 	  Error_Handler();
   }
 
-  f_printf(&SDFile,"TimeStamp,XL_X,XL_Y,XL_Z,GYR_X,GYR_Y,GYR_Z,MAG_X,MAG_Y,MAG_Z\r\n");
+  f_printf(&SDFile,"TimeStamp,XL_X,XL_Y,XL_Z,GYR_X,GYR_Y,GYR_Z,MAG_X,MAG_Y,MAG_Z\n");
 
   f_sync( &SDFile );
 
@@ -196,17 +196,17 @@ int main(void)
 		  f_write(&SDFile, (char *)&buffer, 32000, &byteCount);
 
 		  // Copy end of buffer to beginning and clear
-		  strlcpy(tempBuff,(char *) &buffer[32000], 8000);
-		  memset((char *) &buffer[0], 0, sizeof(buffer));
-		  strlcpy((char *) &buffer, tempBuff, 40000);
-		  memset(&tempBuff[0], 0, sizeof(tempBuff));
+		  memcpy(tempBuff,(char *) &buffer[32000], 8000);
+		  memset((char *) &buffer[0], '\0', sizeof(buffer));
+		  memcpy((char *) &buffer, tempBuff, 8000);
+		  memset(&tempBuff[0], '\0', sizeof(tempBuff));
 
 		  // Set writeIndex to remainder length
 		  writeIndex -= byteCount;
 		  writeNum++;
 
-		  // fsync every 16MB to ensure SD buffer is being written
-		  if( writeNum >= 500){
+		  // fsync every ~8MB to ensure SD buffer is being written
+		  if( writeNum >= 250){
 			  f_sync(&SDFile);
 			  writeNum = 0;
 		  }
