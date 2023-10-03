@@ -5541,7 +5541,6 @@ Discarded input sections
  .group         0x0000000000000000        0xc ./Middlewares/Third_Party/FatFs/src/ff.o
  .group         0x0000000000000000        0xc ./Middlewares/Third_Party/FatFs/src/ff.o
  .group         0x0000000000000000        0xc ./Middlewares/Third_Party/FatFs/src/ff.o
- .group         0x0000000000000000        0xc ./Middlewares/Third_Party/FatFs/src/ff.o
  .text          0x0000000000000000        0x0 ./Middlewares/Third_Party/FatFs/src/ff.o
  .data          0x0000000000000000        0x0 ./Middlewares/Third_Party/FatFs/src/ff.o
  .bss           0x0000000000000000        0x0 ./Middlewares/Third_Party/FatFs/src/ff.o
@@ -5638,7 +5637,6 @@ Discarded input sections
  .debug_macro   0x0000000000000000       0x12 ./Middlewares/Third_Party/FatFs/src/ff.o
  .debug_macro   0x0000000000000000       0xe2 ./Middlewares/Third_Party/FatFs/src/ff.o
  .debug_macro   0x0000000000000000       0x8e ./Middlewares/Third_Party/FatFs/src/ff.o
- .debug_macro   0x0000000000000000      0x19b ./Middlewares/Third_Party/FatFs/src/ff.o
  .group         0x0000000000000000        0xc ./Middlewares/Third_Party/FatFs/src/ff_gen_drv.o
  .group         0x0000000000000000        0xc ./Middlewares/Third_Party/FatFs/src/ff_gen_drv.o
  .group         0x0000000000000000        0xc ./Middlewares/Third_Party/FatFs/src/ff_gen_drv.o
@@ -9024,7 +9022,7 @@ LOAD F:/ST/STM32CubeIDE_1.12.0/STM32CubeIDE/plugins/com.st.stm32cube.ide.mcu.ext
  .comment       0x0000000000000043       0x44 ./USB_DEVICE/App/usbd_desc.o
  .comment       0x0000000000000043       0x44 ./USB_DEVICE/Target/usbd_conf.o
 
-.debug_info     0x0000000000000000    0x1ffc6
+.debug_info     0x0000000000000000    0x1ffb8
  .debug_info    0x0000000000000000      0x725 ./Core/Src/lis2mdl.o
  .debug_info    0x0000000000000725      0x725 ./Core/Src/lsm6dso.o
  .debug_info    0x0000000000000e4a     0x1eb2 ./Core/Src/main.o
@@ -9060,12 +9058,12 @@ LOAD F:/ST/STM32CubeIDE_1.12.0/STM32CubeIDE/plugins/com.st.stm32cube.ide.mcu.ext
  .debug_info    0x0000000000018e4d      0xaeb ./Middlewares/ST/STM32_USB_Device_Library/Core/Src/usbd_ctlreq.o
  .debug_info    0x0000000000019938      0x762 ./Middlewares/ST/STM32_USB_Device_Library/Core/Src/usbd_ioreq.o
  .debug_info    0x000000000001a09a      0x3df ./Middlewares/Third_Party/FatFs/src/diskio.o
- .debug_info    0x000000000001a479     0x2203 ./Middlewares/Third_Party/FatFs/src/ff.o
- .debug_info    0x000000000001c67c      0x397 ./Middlewares/Third_Party/FatFs/src/ff_gen_drv.o
- .debug_info    0x000000000001ca13      0x70e ./USB_DEVICE/App/usb_device.o
- .debug_info    0x000000000001d121      0x987 ./USB_DEVICE/App/usbd_cdc_if.o
- .debug_info    0x000000000001daa8      0x4ba ./USB_DEVICE/App/usbd_desc.o
- .debug_info    0x000000000001df62     0x2064 ./USB_DEVICE/Target/usbd_conf.o
+ .debug_info    0x000000000001a479     0x21f5 ./Middlewares/Third_Party/FatFs/src/ff.o
+ .debug_info    0x000000000001c66e      0x397 ./Middlewares/Third_Party/FatFs/src/ff_gen_drv.o
+ .debug_info    0x000000000001ca05      0x70e ./USB_DEVICE/App/usb_device.o
+ .debug_info    0x000000000001d113      0x987 ./USB_DEVICE/App/usbd_cdc_if.o
+ .debug_info    0x000000000001da9a      0x4ba ./USB_DEVICE/App/usbd_desc.o
+ .debug_info    0x000000000001df54     0x2064 ./USB_DEVICE/Target/usbd_conf.o
 
 .debug_abbrev   0x0000000000000000     0x5495
  .debug_abbrev  0x0000000000000000      0x180 ./Core/Src/lis2mdl.o
@@ -9279,7 +9277,7 @@ LOAD F:/ST/STM32CubeIDE_1.12.0/STM32CubeIDE/plugins/com.st.stm32cube.ide.mcu.ext
  .debug_rnglists
                 0x000000000000137f       0xd0 ./USB_DEVICE/Target/usbd_conf.o
 
-.debug_macro    0x0000000000000000    0x2ea7d
+.debug_macro    0x0000000000000000    0x2ea6a
  .debug_macro   0x0000000000000000      0x216 ./Core/Src/lis2mdl.o
  .debug_macro   0x0000000000000216      0xaa8 ./Core/Src/lis2mdl.o
  .debug_macro   0x0000000000000cbe      0x1b3 ./Core/Src/lis2mdl.o
@@ -9433,19 +9431,19 @@ LOAD F:/ST/STM32CubeIDE_1.12.0/STM32CubeIDE/plugins/com.st.stm32cube.ide.mcu.ext
  .debug_macro   0x000000000002c590      0x396 ./Middlewares/ST/STM32_USB_Device_Library/Core/Src/usbd_ctlreq.o
  .debug_macro   0x000000000002c926      0x392 ./Middlewares/ST/STM32_USB_Device_Library/Core/Src/usbd_ioreq.o
  .debug_macro   0x000000000002ccb8      0x340 ./Middlewares/Third_Party/FatFs/src/diskio.o
- .debug_macro   0x000000000002cff8      0x75a ./Middlewares/Third_Party/FatFs/src/ff.o
- .debug_macro   0x000000000002d752       0x58 ./Middlewares/Third_Party/FatFs/src/ff.o
- .debug_macro   0x000000000002d7aa      0x340 ./Middlewares/Third_Party/FatFs/src/ff_gen_drv.o
- .debug_macro   0x000000000002daea      0x3c5 ./USB_DEVICE/App/usb_device.o
- .debug_macro   0x000000000002deaf       0x52 ./USB_DEVICE/App/usb_device.o
- .debug_macro   0x000000000002df01       0x22 ./USB_DEVICE/App/usb_device.o
- .debug_macro   0x000000000002df23       0x16 ./USB_DEVICE/App/usb_device.o
- .debug_macro   0x000000000002df39      0x3b0 ./USB_DEVICE/App/usbd_cdc_if.o
- .debug_macro   0x000000000002e2e9      0x3cf ./USB_DEVICE/App/usbd_desc.o
- .debug_macro   0x000000000002e6b8       0x1c ./USB_DEVICE/App/usbd_desc.o
- .debug_macro   0x000000000002e6d4      0x3a9 ./USB_DEVICE/Target/usbd_conf.o
+ .debug_macro   0x000000000002cff8      0x747 ./Middlewares/Third_Party/FatFs/src/ff.o
+ .debug_macro   0x000000000002d73f       0x58 ./Middlewares/Third_Party/FatFs/src/ff.o
+ .debug_macro   0x000000000002d797      0x340 ./Middlewares/Third_Party/FatFs/src/ff_gen_drv.o
+ .debug_macro   0x000000000002dad7      0x3c5 ./USB_DEVICE/App/usb_device.o
+ .debug_macro   0x000000000002de9c       0x52 ./USB_DEVICE/App/usb_device.o
+ .debug_macro   0x000000000002deee       0x22 ./USB_DEVICE/App/usb_device.o
+ .debug_macro   0x000000000002df10       0x16 ./USB_DEVICE/App/usb_device.o
+ .debug_macro   0x000000000002df26      0x3b0 ./USB_DEVICE/App/usbd_cdc_if.o
+ .debug_macro   0x000000000002e2d6      0x3cf ./USB_DEVICE/App/usbd_desc.o
+ .debug_macro   0x000000000002e6a5       0x1c ./USB_DEVICE/App/usbd_desc.o
+ .debug_macro   0x000000000002e6c1      0x3a9 ./USB_DEVICE/Target/usbd_conf.o
 
-.debug_line     0x0000000000000000    0x25d1f
+.debug_line     0x0000000000000000    0x25d15
  .debug_line    0x0000000000000000      0x7e0 ./Core/Src/lis2mdl.o
  .debug_line    0x00000000000007e0      0x7e0 ./Core/Src/lsm6dso.o
  .debug_line    0x0000000000000fc0      0xdd7 ./Core/Src/main.o
@@ -9481,12 +9479,12 @@ LOAD F:/ST/STM32CubeIDE_1.12.0/STM32CubeIDE/plugins/com.st.stm32cube.ide.mcu.ext
  .debug_line    0x000000000001c5a0     0x11c3 ./Middlewares/ST/STM32_USB_Device_Library/Core/Src/usbd_ctlreq.o
  .debug_line    0x000000000001d763      0xad2 ./Middlewares/ST/STM32_USB_Device_Library/Core/Src/usbd_ioreq.o
  .debug_line    0x000000000001e235      0xa3f ./Middlewares/Third_Party/FatFs/src/diskio.o
- .debug_line    0x000000000001ec74     0x353c ./Middlewares/Third_Party/FatFs/src/ff.o
- .debug_line    0x00000000000221b0      0xa5d ./Middlewares/Third_Party/FatFs/src/ff_gen_drv.o
- .debug_line    0x0000000000022c0d      0xa8e ./USB_DEVICE/App/usb_device.o
- .debug_line    0x000000000002369b      0xafc ./USB_DEVICE/App/usbd_cdc_if.o
- .debug_line    0x0000000000024197      0xb72 ./USB_DEVICE/App/usbd_desc.o
- .debug_line    0x0000000000024d09     0x1016 ./USB_DEVICE/Target/usbd_conf.o
+ .debug_line    0x000000000001ec74     0x3532 ./Middlewares/Third_Party/FatFs/src/ff.o
+ .debug_line    0x00000000000221a6      0xa5d ./Middlewares/Third_Party/FatFs/src/ff_gen_drv.o
+ .debug_line    0x0000000000022c03      0xa8e ./USB_DEVICE/App/usb_device.o
+ .debug_line    0x0000000000023691      0xafc ./USB_DEVICE/App/usbd_cdc_if.o
+ .debug_line    0x000000000002418d      0xb72 ./USB_DEVICE/App/usbd_desc.o
+ .debug_line    0x0000000000024cff     0x1016 ./USB_DEVICE/Target/usbd_conf.o
 
 .debug_str      0x0000000000000000    0xfafc1
  .debug_str     0x0000000000000000    0xe9cc1 ./Core/Src/lis2mdl.o
@@ -9560,7 +9558,7 @@ LOAD F:/ST/STM32CubeIDE_1.12.0/STM32CubeIDE/plugins/com.st.stm32cube.ide.mcu.ext
  .debug_str     0x00000000000f9a68       0x57 ./Middlewares/Third_Party/FatFs/src/diskio.o
                                       0xed3a3 (size before relaxing)
  .debug_str     0x00000000000f9abf     0x1000 ./Middlewares/Third_Party/FatFs/src/ff.o
-                                      0xeee35 (size before relaxing)
+                                      0xee61a (size before relaxing)
  .debug_str     0x00000000000faabf       0x91 ./Middlewares/Third_Party/FatFs/src/ff_gen_drv.o
                                       0xed408 (size before relaxing)
  .debug_str     0x00000000000fab50       0xc6 ./USB_DEVICE/App/usb_device.o

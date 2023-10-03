@@ -194,29 +194,29 @@ int main(void)
 	  pawprint_readFIFO(&hi2c3, (char *) buffer, &writeIndex, &maxoutLength, &tag_counter, &FIFOout); // Combine some features input here into structs for simplicity
 
 	  // Check buffer fill
-	  if (writeIndex >= 32000){
+	  if (writeIndex >= 32768){
 
 		 // memset(writeBuff, '\0', (size_t) 32000);
 		//  memcpy(writeBuff, (char *)&buffer, (size_t) 32000);
 
 		 // f_write(&SDFile, writeBuff, (size_t) 32000, &byteCount);
 
-		  f_write(&SDFile, (char *)&buffer, (size_t) 32000, &byteCount);
+		  f_write(&SDFile, (char *)&buffer, (size_t) 32768, &byteCount);
 
 		  // Copy end of buffer to beginning and clear
 		  //memcpy(tempBuff,(char *) &buffer[32000],(size_t) 8000);
 		  //memset((char *) &buffer[0], '\0', sizeof(buffer));
 		  //memcpy((char *) &buffer, tempBuff,(size_t) 8000);
 		  //memset(&tempBuff[0], '\0', sizeof(tempBuff));
-		  size_t overBuff = strlen((char *) &buffer[32000]);
-		  memcpy((char *) &buffer[0],(char *) &buffer[32000], overBuff);
+		  size_t overBuff = strlen((char *) &buffer[32768]);
+		  memcpy((char *) &buffer[0],(char *) &buffer[32768], overBuff);
 		  memset((char *) &buffer[overBuff], '\0', sizeof(buffer)-overBuff);
 		  // Set writeIndex to remainder length
 		  writeIndex -= byteCount;
 		  writeNum++;
 
-		  // fsync every ~8MB to ensure SD buffer is being written
-		  if( writeNum >= 25){
+		  // fsync every ~1MB to ensure SD buffer is being written
+		  if( writeNum >= 3){
 
 			  //f_close(&SDFile);
 			  //f_open(&SDFile, "Out.csv", FA_OPEN_APPEND | FA_WRITE);

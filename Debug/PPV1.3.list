@@ -29,23 +29,23 @@ Idx Name          Size      VMA       LMA       File off  Algn
                   CONTENTS, READONLY
  12 .comment      00000043  00000000  00000000  00030304  2**0
                   CONTENTS, READONLY
- 13 .debug_info   0001ffc6  00000000  00000000  00030347  2**0
+ 13 .debug_info   0001ffb8  00000000  00000000  00030347  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 14 .debug_abbrev 00005495  00000000  00000000  0005030d  2**0
+ 14 .debug_abbrev 00005495  00000000  00000000  000502ff  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 15 .debug_aranges 00001af8  00000000  00000000  000557a8  2**3
+ 15 .debug_aranges 00001af8  00000000  00000000  00055798  2**3
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 16 .debug_rnglists 0000144f  00000000  00000000  000572a0  2**0
+ 16 .debug_rnglists 0000144f  00000000  00000000  00057290  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 17 .debug_macro  0002ea7d  00000000  00000000  000586ef  2**0
+ 17 .debug_macro  0002ea6a  00000000  00000000  000586df  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 18 .debug_line   00025d1f  00000000  00000000  0008716c  2**0
+ 18 .debug_line   00025d15  00000000  00000000  00087149  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 19 .debug_str    000fafc1  00000000  00000000  000ace8b  2**0
+ 19 .debug_str    000fafc1  00000000  00000000  000ace5e  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 20 .debug_frame  00008378  00000000  00000000  001a7e4c  2**2
+ 20 .debug_frame  00008378  00000000  00000000  001a7e20  2**2
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 21 .debug_line_str 00000043  00000000  00000000  001b01c4  2**0
+ 21 .debug_line_str 00000043  00000000  00000000  001b0198  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
 
 Disassembly of section .text:
@@ -1423,19 +1423,19 @@ int main(void)
  8000f0e:	f000 fc03 	bl	8001718 <pawprint_readFIFO>
 
 	  // Check buffer fill
-	  if (writeIndex >= 32000){
+	  if (writeIndex >= 32768){
  8000f12:	4b2b      	ldr	r3, [pc, #172]	; (8000fc0 <main+0x1a8>)
  8000f14:	681b      	ldr	r3, [r3, #0]
- 8000f16:	f5b3 4ffa 	cmp.w	r3, #32000	; 0x7d00
+ 8000f16:	f5b3 4f00 	cmp.w	r3, #32768	; 0x8000
  8000f1a:	dbea      	blt.n	8000ef2 <main+0xda>
 		 // memset(writeBuff, '\0', (size_t) 32000);
 		//  memcpy(writeBuff, (char *)&buffer, (size_t) 32000);
 
 		 // f_write(&SDFile, writeBuff, (size_t) 32000, &byteCount);
 
-		  f_write(&SDFile, (char *)&buffer, (size_t) 32000, &byteCount);
+		  f_write(&SDFile, (char *)&buffer, (size_t) 32768, &byteCount);
  8000f1c:	4b2a      	ldr	r3, [pc, #168]	; (8000fc8 <main+0x1b0>)
- 8000f1e:	f44f 42fa 	mov.w	r2, #32000	; 0x7d00
+ 8000f1e:	f44f 4200 	mov.w	r2, #32768	; 0x8000
  8000f22:	4928      	ldr	r1, [pc, #160]	; (8000fc4 <main+0x1ac>)
  8000f24:	481d      	ldr	r0, [pc, #116]	; (8000f9c <main+0x184>)
  8000f26:	f00d ffc1 	bl	800eeac <f_write>
@@ -1444,11 +1444,11 @@ int main(void)
 		  //memset((char *) &buffer[0], '\0', sizeof(buffer));
 		  //memcpy((char *) &buffer, tempBuff,(size_t) 8000);
 		  //memset(&tempBuff[0], '\0', sizeof(tempBuff));
-		  size_t overBuff = strlen((char *) &buffer[32000]);
+		  size_t overBuff = strlen((char *) &buffer[32768]);
  8000f2a:	4828      	ldr	r0, [pc, #160]	; (8000fcc <main+0x1b4>)
  8000f2c:	f7ff f9a0 	bl	8000270 <strlen>
  8000f30:	6038      	str	r0, [r7, #0]
-		  memcpy((char *) &buffer[0],(char *) &buffer[32000], overBuff);
+		  memcpy((char *) &buffer[0],(char *) &buffer[32768], overBuff);
  8000f32:	683a      	ldr	r2, [r7, #0]
  8000f34:	4925      	ldr	r1, [pc, #148]	; (8000fcc <main+0x1b4>)
  8000f36:	4823      	ldr	r0, [pc, #140]	; (8000fc4 <main+0x1ac>)
@@ -1482,10 +1482,10 @@ int main(void)
  8000f6c:	6013      	str	r3, [r2, #0]
 
 		  // fsync every ~8MB to ensure SD buffer is being written
-		  if( writeNum >= 25){
+		  if( writeNum >= 3){
  8000f6e:	4b18      	ldr	r3, [pc, #96]	; (8000fd0 <main+0x1b8>)
  8000f70:	681b      	ldr	r3, [r3, #0]
- 8000f72:	2b18      	cmp	r3, #24
+ 8000f72:	2b02      	cmp	r3, #2
  8000f74:	d9bd      	bls.n	8000ef2 <main+0xda>
 
 			  //f_close(&SDFile);
@@ -1520,7 +1520,7 @@ int main(void)
  8000fc0:	2000a078 	.word	0x2000a078
  8000fc4:	20000438 	.word	0x20000438
  8000fc8:	2000a0ac 	.word	0x2000a0ac
- 8000fcc:	20008138 	.word	0x20008138
+ 8000fcc:	20008438 	.word	0x20008438
  8000fd0:	2000a0b0 	.word	0x2000a0b0
 
 08000fd4 <SystemClock_Config>:
