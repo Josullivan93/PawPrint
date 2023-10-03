@@ -175,36 +175,6 @@ void pawprint_init( I2C_HandleTypeDef *i2cHandle ){
 
 }
 
-void pawprint_WriteSD( FIL *SDFile , char *outBUFFER, int *bufferLength){
-
-	int failcount = 0;
-	unsigned int byteCount = 0;
-	int blockSize = 5120;
-	int readChunk = ((*bufferLength / blockSize) * blockSize);
-
-	f_open(SDFile, "Out.csv", FA_OPEN_APPEND | FA_WRITE); // Open file for appending
-
-	for (int i = 0; i <= (readChunk/blockSize); i++){
-		f_write(SDFile, &outBUFFER[i*blockSize], blockSize, &byteCount); // Write largest 512 multiple sector
-		if (byteCount != blockSize){
-
-			failcount++;
-
-		}
-
-
-			f_sync(SDFile);
-
-	}
-
-	f_close(SDFile);
-
-	*bufferLength -= readChunk; // Get remainder length and set buffer length to accommodate it
-
-	memmove(outBUFFER, &outBUFFER[readChunk], *bufferLength);  // Move remaining data to index 0
-
-}
-
 // Custom FIFO read function with single additional buffer - Trying to address missing data issue
 // Will attempt to align on single line per time stamp
 // SD write file incorporated to ensure  buffer is unloaded ASAP and does not overrun due to FIFO depth
@@ -263,20 +233,19 @@ void pawprint_readFIFO (I2C_HandleTypeDef *i2cHandle, char *buffer, int *writeIn
 			// Is tag_counter same as previous?
 			if ((new_tag_counter != *tag_counter)){
 
-					// send old data to buffer with snprintf
-					outLength = snprintf(&buffer[*writeIndex],40000-*writeIndex ,"%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f\n",
-																	(((float_t)FIFOout->timestamp) * 25.0f / 1000000.0f),
-							        								lsm6dso_from_fs2_to_mg(FIFOout->XLdat.x),
-							        								lsm6dso_from_fs2_to_mg(FIFOout->XLdat.y),
-							        								lsm6dso_from_fs2_to_mg(FIFOout->XLdat.z),
+				outLength = snprintf(&buffer[*writeIndex],40000-*writeIndex ,"%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f\n",
+																	FIFOout->timestamp,
+							        								FIFOout->XLdat.x,
+							        								FIFOout->XLdat.y,
+							        								FIFOout->XLdat.z,
 
-									        						lsm6dso_from_fs125_to_mdps(FIFOout->GYRdat.x),
-																	lsm6dso_from_fs125_to_mdps(FIFOout->GYRdat.y),
-																	lsm6dso_from_fs125_to_mdps(FIFOout->GYRdat.z),
+									        						FIFOout->GYRdat.x,
+																	FIFOout->GYRdat.y,
+																	FIFOout->GYRdat.z,
 
-																	lis2mdl_from_lsb_to_mgauss(FIFOout->MAGdat.x),
-																	lis2mdl_from_lsb_to_mgauss(FIFOout->MAGdat.y),
-																	lis2mdl_from_lsb_to_mgauss(FIFOout->MAGdat.z));
+																	FIFOout->MAGdat.x,
+																	FIFOout->MAGdat.y,
+																	FIFOout->MAGdat.z);
 
 					if (outLength < 0){
 						// Could be the reason for errors in output? Write if error occurs for inspection
@@ -331,25 +300,29 @@ void pawprint_readFIFO (I2C_HandleTypeDef *i2cHandle, char *buffer, int *writeIn
 			switch (tag)
 			{
 				case 0x01: // Gyroscope
-					FIFOout->GYRdat.x = (FIFOdat[2] << 8) | FIFOdat[1] ;
-					FIFOout->GYRdat.y = (FIFOdat[4] << 8) | FIFOdat[3];
-					FIFOout->GYRdat.z = (FIFOdat[6] << 8) | FIFOdat[5];
+					FIFOout->GYRdat.x = lsm6dso_from_fs125_to_mdps((FIFOdat[2] << 8) | FIFOdat[1]) ;
+					FIFOout->GYRdat.y = lsm6dso_from_fs125_to_mdps((FIFOdat[4] << 8) | FIFOdat[3]);
+					FIFOout->GYRdat.z = lsm6dso_from_fs125_to_mdps((FIFOdat[6] << 8) | FIFOdat[5]);
+
 					break;
 
 				case 0x02: // Accelerometer
-					FIFOout->XLdat.x = (FIFOdat[2] << 8) | FIFOdat[1];
-					FIFOout->XLdat.y = (FIFOdat[4] << 8) | FIFOdat[3];
-					FIFOout->XLdat.z = (FIFOdat[6] << 8) | FIFOdat[5];
+					FIFOout->XLdat.x =	lsm6dso_from_fs2_to_mg((FIFOdat[2] << 8) | FIFOdat[1]);
+					FIFOout->XLdat.y = lsm6dso_from_fs2_to_mg((FIFOdat[4] << 8) | FIFOdat[3]);
+					FIFOout->XLdat.z = lsm6dso_from_fs2_to_mg((FIFOdat[6] << 8) | FIFOdat[5]);
+
 					break;
 
 				case 0x04: // Timestamp
-					FIFOout->timestamp = (FIFOdat[4] << 24) | (FIFOdat[3] << 16) | (FIFOdat[2] << 8) | FIFOdat[1];
+					FIFOout->timestamp = (((FIFOdat[4] << 24) | (FIFOdat[3] << 16) | (FIFOdat[2] << 8) | FIFOdat[1])* 25.0f / 1000000.0f);
+
 					break;
 
 				case 0x0E: // Magnetometer
-					FIFOout->MAGdat.x = (FIFOdat[2] << 8) | FIFOdat[1];
-					FIFOout->MAGdat.y = (FIFOdat[4] << 8) | FIFOdat[3];
-					FIFOout->MAGdat.z = (FIFOdat[6] << 8) | FIFOdat[5];
+					FIFOout->MAGdat.x = lis2mdl_from_lsb_to_mgauss((FIFOdat[2] << 8) | FIFOdat[1]);
+					FIFOout->MAGdat.y = lis2mdl_from_lsb_to_mgauss((FIFOdat[4] << 8) | FIFOdat[3]);
+					FIFOout->MAGdat.z = lis2mdl_from_lsb_to_mgauss((FIFOdat[6] << 8) | FIFOdat[5]);
+
 					break;
 
 			}

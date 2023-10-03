@@ -19,21 +19,21 @@
 /* Simple output struct*/
 typedef struct
 {
-	uint32_t timestamp;
+	float_t timestamp;
 	struct{
-		int16_t x;
-		int16_t y;
-		int16_t z;
+		float_t x;
+		float_t y;
+		float_t z;
 	} XLdat;
 	struct{
-		int16_t x;
-		int16_t y;
-		int16_t z;
+		float_t x;
+		float_t y;
+		float_t z;
 	} GYRdat;
 	struct{
-		int16_t x;
-		int16_t y;
-		int16_t z;
+		float_t x;
+		float_t y;
+		float_t z;
 	} MAGdat;
 } sensor_out;
 
