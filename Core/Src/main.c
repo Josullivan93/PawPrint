@@ -164,11 +164,13 @@ int main(void)
 	  Error_Handler();
   }
 
-  f_printf(&SDFile,"TimeStamp,XL_X,XL_Y,XL_Z,GYR_X,GYR_Y,GYR_Z,MAG_X,MAG_Y,MAG_Z\n");
+  maxoutLength = snprintf((char *) &buffer[writeIndex],40000-writeIndex ,"TimeStamp,XL_X,XL_Y,XL_Z,GYR_X,GYR_Y,GYR_Z,MAG_X,MAG_Y,MAG_Z\n");
+  writeIndex += maxoutLength;
 
+  //f_printf(&SDFile,"TimeStamp,XL_X,XL_Y,XL_Z,GYR_X,GYR_Y,GYR_Z,MAG_X,MAG_Y,MAG_Z\n");
   //f_sync( &SDFile );
-  f_close(&SDFile);
-  f_open(&SDFile, "Out.csv", FA_OPEN_APPEND | FA_WRITE);
+  //f_close(&SDFile);
+  //f_open(&SDFile, "Out.csv", FA_OPEN_APPEND | FA_WRITE);
 
   /* Search for connection via USB */
   /* Once Received proceed to init and data collection */
@@ -218,10 +220,10 @@ int main(void)
 		  // fsync every ~1MB to ensure SD buffer is being written
 		  if( writeNum >= 3){
 
-			  //f_close(&SDFile);
-			  //f_open(&SDFile, "Out.csv", FA_OPEN_APPEND | FA_WRITE);
+			  f_close(&SDFile);
+			  f_open(&SDFile, "Out.csv", FA_OPEN_APPEND | FA_WRITE);
 
-			 f_sync(&SDFile);
+			 //f_sync(&SDFile);
 
 
 			 writeNum = 0;
